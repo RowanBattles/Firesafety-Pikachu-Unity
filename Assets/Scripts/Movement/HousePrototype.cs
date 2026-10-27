@@ -60,9 +60,6 @@ namespace FireSafety.Movement
                 new Vector3(0, 1.25f, 0.05f), Vector3.one * 0.42f,
                 Material(new Color(0.95f, 0.72f, 0.49f)));
             Destroy(head.GetComponent<Collider>());
-            var nose = Primitive("Facing Direction", PrimitiveType.Cube, character.transform,
-                new Vector3(0, 1.28f, 0.27f), new Vector3(0.13f, 0.13f, 0.25f), dark);
-            Destroy(nose.GetComponent<Collider>());
 
             Camera view = Camera.main;
             if (view == null)
