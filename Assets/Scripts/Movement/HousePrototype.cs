@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using FireSafety.Interaction;
 using UnityEngine;
 
 namespace FireSafety.Movement
@@ -13,6 +14,8 @@ namespace FireSafety.Movement
         private readonly List<Bounds> obstacles = new List<Bounds>();
         private readonly HashSet<Collider> floors = new HashSet<Collider>();
         private readonly List<Material> materials = new List<Material>();
+        private readonly List<OpenableObject> openings = new List<OpenableObject>();
+        private ClickToMovePlayer player;
         public GridPathfinder Navigation { get; private set; }
 
         private void Awake()
@@ -47,6 +50,10 @@ namespace FireSafety.Movement
             Furniture("Bed", 6.5f, 5, 2.8f, 4, 0.45f, teal);
             Furniture("Pillow", 6.5f, 6.2f, 2.4f, 0.8f, 0.6f, white);
             Furniture("Wardrobe", 8.7f, 1.2f, 1.1f, 1.3f, 1f, wood);
+            HouseOpenings.Build(transform, Material(new Color(0.76f, 0.48f, 0.23f)), white,
+                Material(new Color(0.28f, 0.72f, 0.88f)), dark, openings);
+            foreach (OpenableObject opening in openings)
+                if (opening.IsDoor) opening.StateChanged += OnDoorChanged;
             BuildNavigation();
 
             var character = new GameObject("Player");
@@ -72,8 +79,11 @@ namespace FireSafety.Movement
             var marker = Primitive("Destination", PrimitiveType.Cylinder, transform,
                 Vector3.zero, new Vector3(0.45f, 0.015f, 0.45f), Material(new Color(1f, 0.71f, 0.16f)));
             Destroy(marker.GetComponent<Collider>());
-            var player = character.AddComponent<ClickToMovePlayer>();
+            player = character.AddComponent<ClickToMovePlayer>();
             player.Initialize(this, view, marker.transform);
+            var interaction = gameObject.AddComponent<ObjectInteraction>();
+            interaction.Initialize(view, player, this, CanPlaceDoor);
+            player.SetInteraction(interaction);
         }
 
         public bool IsFloor(Collider surface) => floors.Contains(surface);
@@ -98,15 +108,33 @@ namespace FireSafety.Movement
                     && point.z > -8 + PlayerRadius && point.z < 8 - PlayerRadius;
                 foreach (Bounds obstacle in obstacles)
                 {
-                    if (point.x >= obstacle.min.x - PlayerRadius && point.x <= obstacle.max.x + PlayerRadius
-                        && point.z >= obstacle.min.z - PlayerRadius && point.z <= obstacle.max.z + PlayerRadius)
+                    if (OverlapsPlayer(obstacle, point))
                     {
                         walkable[cell] = false;
                         break;
                     }
                 }
+                foreach (OpenableObject opening in openings)
+                    if (opening.IsDoor && OverlapsPlayer(opening.NavigationBounds, point)) walkable[cell] = false;
             }
             Navigation = new GridPathfinder(Width, Height, walkable);
+        }
+
+        private static bool OverlapsPlayer(Bounds bounds, Vector3 point)
+            => point.x >= bounds.min.x - PlayerRadius && point.x <= bounds.max.x + PlayerRadius
+                && point.z >= bounds.min.z - PlayerRadius && point.z <= bounds.max.z + PlayerRadius;
+
+        private bool CanPlaceDoor(Bounds bounds)
+        {
+            Vector3 position = player.transform.position;
+            // Protect the actual player and the grid anchor needed for their next route.
+            return !OverlapsPlayer(bounds, position) && !OverlapsPlayer(bounds, CellToWorld(WorldToCell(position)));
+        }
+
+        private void OnDoorChanged()
+        {
+            BuildNavigation();
+            if (player != null) player.StopMovement();
         }
 
         private void Floor(string name, float x, float z, float width, float depth, Material material)
@@ -158,6 +186,8 @@ namespace FireSafety.Movement
 
         private void OnDestroy()
         {
+            foreach (OpenableObject opening in openings)
+                if (opening != null) opening.StateChanged -= OnDoorChanged;
             foreach (Material material in materials) Destroy(material);
         }
     }

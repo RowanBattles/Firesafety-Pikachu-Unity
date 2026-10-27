@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using FireSafety.Interaction;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -14,6 +15,8 @@ namespace FireSafety.Movement
         private readonly List<int> cells = new List<int>();
         private readonly List<Vector3> waypoints = new List<Vector3>();
         private int waypoint;
+        private ObjectInteraction interaction;
+        public bool IsMoving => waypoint < waypoints.Count;
 
         public void Initialize(HousePrototype layout, Camera camera, Transform destinationMarker)
         {
@@ -23,10 +26,30 @@ namespace FireSafety.Movement
             marker.gameObject.SetActive(false);
         }
 
+        public void SetInteraction(ObjectInteraction controller) => interaction = controller;
+
+        public void StopMovement()
+        {
+            waypoints.Clear();
+            waypoint = 0;
+            if (marker != null) marker.gameObject.SetActive(false);
+        }
+
+        public void FollowPath(IReadOnlyList<int> path)
+        {
+            StopMovement();
+            // Include the current cell centre so new orders remain safe even during a step.
+            foreach (int cell in path) waypoints.Add(house.CellToWorld(cell));
+            if (waypoints.Count == 0) return;
+            marker.position = waypoints[waypoints.Count - 1] + Vector3.up * 0.03f;
+            marker.gameObject.SetActive(true);
+        }
+
         private void Update()
         {
             if (house == null || view == null) return;
-            if (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame)
+            if ((interaction == null || !interaction.BlocksMovementInput)
+                && Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame)
                 SetDestination(Mouse.current.position.ReadValue());
 
             float distance = moveSpeed * Time.deltaTime;
@@ -41,7 +64,11 @@ namespace FireSafety.Movement
                     transform.position = Vector3.MoveTowards(transform.position, waypoints[waypoint], step);
                 }
                 distance -= step;
-                if ((transform.position - waypoints[waypoint]).sqrMagnitude < 0.0001f) waypoint++;
+                if ((transform.position - waypoints[waypoint]).sqrMagnitude < 0.0001f)
+                {
+                    transform.position = waypoints[waypoint];
+                    waypoint++;
+                }
                 else break;
             }
             if (waypoint >= waypoints.Count) marker.gameObject.SetActive(false);
@@ -62,12 +89,7 @@ namespace FireSafety.Movement
                 // A blocked click leaves the existing valid route intact.
                 return;
             }
-            waypoints.Clear();
-            // Rejoin the current cell centre before following the new route, including mid-step clicks.
-            foreach (int cell in cells) waypoints.Add(house.CellToWorld(cell));
-            waypoint = 0;
-            marker.position = house.CellToWorld(goal) + Vector3.up * 0.03f;
-            marker.gameObject.SetActive(true);
+            FollowPath(cells);
         }
     }
 }

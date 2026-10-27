@@ -22,16 +22,34 @@ namespace FireSafety.Movement
 
         public bool TryFindPath(int start, int goal, List<int> path)
         {
+            if (!IsWalkable(goal))
+            {
+                path.Clear();
+                return false;
+            }
+            return TryFindPathToAny(start, cell => cell == goal, path);
+        }
+
+        // Find the closest reachable approach cell, rather than choosing a nearby cell through a wall.
+        public bool TryFindPathToAny(int start, System.Predicate<int> isGoal, List<int> path)
+        {
             path.Clear();
-            if (!IsWalkable(start) || !IsWalkable(goal)) return false;
+            if (isGoal == null) throw new System.ArgumentNullException(nameof(isGoal));
+            if (!IsWalkable(start)) return false;
             var previous = new int[walkable.Length];
             for (int i = 0; i < previous.Length; i++) previous[i] = -1;
             var frontier = new Queue<int>();
             frontier.Enqueue(start);
             previous[start] = start;
-            while (frontier.Count > 0 && previous[goal] < 0)
+            int goal = -1;
+            while (frontier.Count > 0)
             {
                 int current = frontier.Dequeue();
+                if (isGoal(current))
+                {
+                    goal = current;
+                    break;
+                }
                 int x = current % Width;
                 int z = current / Width;
                 if (x > 0) Visit(current - 1, current, previous, frontier);
@@ -39,7 +57,7 @@ namespace FireSafety.Movement
                 if (z > 0) Visit(current - Width, current, previous, frontier);
                 if (z + 1 < Height) Visit(current + Width, current, previous, frontier);
             }
-            if (previous[goal] < 0) return false;
+            if (goal < 0) return false;
             for (int cell = goal; cell != start; cell = previous[cell]) path.Add(cell);
             path.Add(start);
             path.Reverse();

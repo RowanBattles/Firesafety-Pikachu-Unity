@@ -47,6 +47,25 @@ public static class GridPathfinderTests
         Check(!corner.TryFindPath(0, 3, path), "A diagonal gap between obstacles is not a doorway");
         var edge = new GridPathfinder(3, 2, new[] { false, false, true, true, false, false });
         Check(!edge.TryFindPath(2, 3, path), "Neighbour lookup must never wrap across a row");
+
+        Check(grid.TryFindPathToAny(8, cell => cell == 12 || cell == 15, path)
+            && path[path.Count - 1] == 15 && path.Count == 2,
+            "An object approach must choose the shortest reachable interaction spot");
+        Check(sealedRoom.TryFindPathToAny(8, cell => cell == 12 || cell == 28, path)
+            && path[path.Count - 1] == 28,
+            "An unreachable nearby spot must not hide a reachable alternative");
+        Check(!sealedRoom.TryFindPathToAny(8, cell => cell == 12, path) && path.Count == 0,
+            "An object behind a closed door must have no approach route or stale path");
+        Check(!grid.TryFindPathToAny(8, cell => cell == 3, path) && path.Count == 0,
+            "Interaction spots inside obstacles must never be accepted");
+        Check(grid.TryFindPathToAny(8, cell => cell == 8, path) && path.Count == 1 && path[0] == 8,
+            "A nearby interaction spot may already be the current cell");
+        Check(!grid.TryFindPathToAny(-1, cell => true, path) && path.Count == 0,
+            "An invalid start must not start an interaction route");
+        Check(!corner.TryFindPathToAny(0, cell => cell == 3, path),
+            "An interaction route must not cut diagonally through a corner");
+        Check(grid.TryFindPathToAny(8, cell => cell == 12, path),
+            "Opening the door should make the interaction spot reachable again");
         Console.WriteLine("Passed " + checks + " navigation checks.");
     }
 }
