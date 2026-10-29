@@ -108,6 +108,9 @@ Packages/packages-lock.json linguist-generated
 *.wav                   lfs
 *.xm                    lfs
 
+# Keep this small supplied recording in Git so it is available without an LFS download.
+Assets/Resources/Audio/freesound_community-cough-104521.mp3 -filter -diff -merge -text
+
 # Video
 *.asf                   lfs
 *.avi                   lfs

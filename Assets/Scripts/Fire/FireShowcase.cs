@@ -1,4 +1,5 @@
 using FireSafety.Movement;
+using FireSafety.Smoke;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
@@ -20,6 +21,8 @@ namespace FireSafety.Fire
         private HousePrototype house;
         private ClickToMovePlayer player;
         private FireHazard fire;
+        private SmokeHazard smoke;
+        private bool diedFromSmoke;
         private bool choosing = true, choosingLocation, caught;
         private int consumedFrame = -1;
         private float tick;
@@ -63,9 +66,13 @@ namespace FireSafety.Fire
             if (fire == null) return;
             tick += Time.deltaTime;
             if (tick >= 0.2f) { fire.Tick(tick); tick = 0f; }
-            if (!house.IsFireDanger(player.transform.position)) return;
+            smoke.Tick(Time.deltaTime);
+            bool fireCaught = house.IsFireDanger(player.transform.position);
+            if (!fireCaught && !smoke.Exposure.IsDead) return;
+            diedFromSmoke = !fireCaught;
             caught = true;
             player.StopMovement();
+            smoke.StopCoughing();
         }
 
         private void StartFire(FireType type, FireLocation location)
@@ -75,6 +82,10 @@ namespace FireSafety.Fire
             fire = root.AddComponent<FireHazard>();
             house.AttachFire(fire);
             fire.Initialize(house, type, location, house.GetFireSite(location));
+            var smokeRoot = new GameObject("Smoke and coughing");
+            smokeRoot.transform.SetParent(house.transform, false);
+            smoke = smokeRoot.AddComponent<SmokeHazard>();
+            smoke.Initialize(house, fire, player.transform);
             choosing = false;
             consumedFrame = Time.frameCount;
         }
@@ -95,9 +106,11 @@ namespace FireSafety.Fire
             Rect panel = Panel;
             GUI.Box(panel, GUIContent.none, GUI.skin.window);
             GUI.Label(new Rect(panel.x + 20, panel.y + 16, panel.width - 40, 30),
-                caught ? "Caught by the fire" : choosingLocation ? "Where should class A start?" : "Which fire class would you like?", titleStyle);
+                caught ? (diedFromSmoke ? "Overcome by smoke" : "Caught by the fire")
+                    : choosingLocation ? "Where should class A start?" : "Which fire class would you like?", titleStyle);
             GUI.Label(new Rect(panel.x + 20, panel.y + 52, panel.width - 40, 36),
-                caught ? "The fire reached you. Restart to try another scenario."
+                caught ? (diedFromSmoke ? "You stayed in the smoke too long. Restart to try again."
+                    : "The fire reached you. Restart to try another scenario.")
                     : "Each scenario begins with a small, growing fire.", textStyle);
             if (caught) { DrawButton(0, "Restart demo"); return; }
             if (choosingLocation)

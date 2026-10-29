@@ -97,7 +97,8 @@ namespace FireSafety.Movement
         {
             Ray ray = view.ScreenPointToRay(screenPosition);
             // Raycast the actual surface so clicking walls/furniture cannot select the floor behind them.
-            if (!Physics.Raycast(ray, out RaycastHit hit, 100f) || !house.IsFloor(hit.collider))
+            if (!Physics.Raycast(ray, out RaycastHit hit, 100f) || !house.IsFloor(hit.collider)
+                || !house.IsVisiblePoint(hit.point))
             {
                 return;
             }

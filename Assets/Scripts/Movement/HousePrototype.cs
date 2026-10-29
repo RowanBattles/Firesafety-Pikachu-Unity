@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using FireSafety.Interaction;
 using FireSafety.Fire;
+using FireSafety.Visibility;
 using UnityEngine;
 
 namespace FireSafety.Movement
@@ -20,6 +21,7 @@ namespace FireSafety.Movement
         private readonly Dictionary<FireLocation, FireSite> fireSites = new Dictionary<FireLocation, FireSite>();
         private FireHazard fire;
         private FireShowcase showcase;
+        private FogOfWar visibility;
         private bool[] navigationMask;
         private ClickToMovePlayer player;
         public GridPathfinder Navigation { get; private set; }
@@ -29,6 +31,7 @@ namespace FireSafety.Movement
         public float CharacterRadius => PlayerRadius;
         public Vector3 GridOrigin => Origin;
         public bool GameplayBlocked => showcase != null && showcase.BlocksGameplay;
+        public int OcclusionVersion { get; private set; }
 
         private void Awake()
         {
@@ -99,9 +102,29 @@ namespace FireSafety.Movement
             player.SetInteraction(interaction);
             showcase = gameObject.AddComponent<FireShowcase>();
             showcase.Initialize(this, player);
+            var fog = new GameObject("Room visibility");
+            fog.transform.SetParent(transform, false);
+            visibility = fog.AddComponent<FogOfWar>();
+            visibility.Initialize(this, character.transform, view);
         }
 
         public bool IsFloor(Collider surface) => floors.Contains(surface);
+        public bool IsVisiblePoint(Vector3 point) => visibility == null || visibility.CanSee(point);
+
+        public void CopySightObstacles(List<SightObstacle> result)
+        {
+            result.Clear();
+            foreach (Bounds wall in walls) AddSightObstacle(result, wall);
+            foreach (OpenableObject opening in openings)
+                if (opening.IsDoor) AddSightObstacle(result, opening.NavigationBounds);
+        }
+
+        private static void AddSightObstacle(List<SightObstacle> result, Bounds bounds)
+        {
+            // Close floating-point cracks where a door leaf meets a wall.
+            const float seam = 0.002f;
+            result.Add(new SightObstacle(bounds.min.x - seam, bounds.min.z - seam, bounds.max.x + seam, bounds.max.z + seam));
+        }
 
         public int WorldToCell(Vector3 point)
         {
@@ -193,6 +216,7 @@ namespace FireSafety.Movement
 
         private void OnDoorChanged()
         {
+            OcclusionVersion++;
             BuildNavigation();
             if (player != null) player.StopMovement();
         }

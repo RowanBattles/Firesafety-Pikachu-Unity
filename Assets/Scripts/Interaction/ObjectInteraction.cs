@@ -99,7 +99,15 @@ namespace FireSafety.Interaction
 
             WorldInteractable target = null;
             if (Physics.Raycast(view.ScreenPointToRay(pointer), out RaycastHit hit, 100f))
+            {
+                if (!house.IsVisiblePoint(hit.point))
+                {
+                    player.StopMovement();
+                    Dismiss();
+                    return;
+                }
                 target = hit.collider.GetComponentInParent<WorldInteractable>();
+            }
             if (target == null)
             {
                 if (approaching != null)

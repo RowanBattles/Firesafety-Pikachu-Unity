@@ -48,6 +48,9 @@ namespace FireSafety.Interaction
             Box(root, "Inner frame", new Vector3(0f, 1.15f, -0.2f), new Vector3(2.4f, 0.2f, 0.1f), frame);
             Box(root, "Left frame", new Vector3(-1.15f, 1.15f, 0f), new Vector3(0.1f, 0.2f, 0.5f), frame);
             Box(root, "Right frame", new Vector3(1.15f, 1.15f, 0f), new Vector3(0.1f, 0.2f, 0.5f), frame);
+            // Stay visible and clickable inside the room when the hinged sash swings into the fog.
+            Box(root, "Fixed blue window sill", new Vector3(0f, 1.12f, -0.25f),
+                new Vector3(2.2f, 0.2f, 0.4f), glass);
             Transform hinge = Root(root, "Window hinge", new Vector3(-1.1f, 1.15f, 0f), 0f);
             Collider panel = Box(hinge, "Blue window sash", new Vector3(1.1f, 0f, 0f), new Vector3(2.2f, 0.18f, 0.24f), glass);
             Box(hinge, "Window handle", new Vector3(2f, 0.12f, 0f), new Vector3(0.12f, 0.06f, 0.16f), frame);
