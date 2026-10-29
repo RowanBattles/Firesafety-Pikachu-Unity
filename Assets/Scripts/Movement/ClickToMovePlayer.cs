@@ -16,6 +16,7 @@ namespace FireSafety.Movement
         private readonly List<Vector3> waypoints = new List<Vector3>();
         private int waypoint;
         private ObjectInteraction interaction;
+        private GridPathfinder plannedNavigation;
         public bool IsMoving => waypoint < waypoints.Count;
 
         public void Initialize(HousePrototype layout, Camera camera, Transform destinationMarker)
@@ -38,6 +39,7 @@ namespace FireSafety.Movement
         public void FollowPath(IReadOnlyList<int> path)
         {
             StopMovement();
+            plannedNavigation = house.Navigation;
             // Include the current cell centre so new orders remain safe even during a step.
             foreach (int cell in path) waypoints.Add(house.CellToWorld(cell));
             if (waypoints.Count == 0) return;
@@ -48,6 +50,20 @@ namespace FireSafety.Movement
         private void Update()
         {
             if (house == null || view == null) return;
+            if (house.GameplayBlocked) { StopMovement(); return; }
+            if (IsMoving && plannedNavigation != house.Navigation)
+            {
+                bool valid = true;
+                for (int i = waypoint; i < waypoints.Count; i++)
+                    if (!house.Navigation.IsWalkable(house.WorldToCell(waypoints[i]))) { valid = false; break; }
+                if (!valid)
+                {
+                    int destination = house.WorldToCell(waypoints[waypoints.Count - 1]);
+                    if (house.Navigation.TryFindPath(house.WorldToCell(transform.position), destination, cells)) FollowPath(cells);
+                    else StopMovement();
+                }
+                plannedNavigation = house.Navigation;
+            }
             if ((interaction == null || !interaction.BlocksMovementInput)
                 && Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame)
                 SetDestination(Mouse.current.position.ReadValue());
@@ -61,11 +77,14 @@ namespace FireSafety.Movement
                 {
                     transform.rotation = Quaternion.RotateTowards(transform.rotation,
                         Quaternion.LookRotation(delta), turnSpeed * Time.deltaTime);
-                    transform.position = Vector3.MoveTowards(transform.position, waypoints[waypoint], step);
+                    Vector3 next = Vector3.MoveTowards(transform.position, waypoints[waypoint], step);
+                    if (house.IsFireDanger(next)) { StopMovement(); return; }
+                    transform.position = next;
                 }
                 distance -= step;
                 if ((transform.position - waypoints[waypoint]).sqrMagnitude < 0.0001f)
                 {
+                    if (house.IsFireDanger(waypoints[waypoint])) { StopMovement(); return; }
                     transform.position = waypoints[waypoint];
                     waypoint++;
                 }

@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using FireSafety.Interaction;
+using FireSafety.Fire;
 using UnityEngine;
 
 namespace FireSafety.Movement
@@ -15,8 +16,19 @@ namespace FireSafety.Movement
         private readonly HashSet<Collider> floors = new HashSet<Collider>();
         private readonly List<Material> materials = new List<Material>();
         private readonly List<OpenableObject> openings = new List<OpenableObject>();
+        private readonly List<Bounds> walls = new List<Bounds>();
+        private readonly Dictionary<FireLocation, FireSite> fireSites = new Dictionary<FireLocation, FireSite>();
+        private FireHazard fire;
+        private FireShowcase showcase;
+        private bool[] navigationMask;
         private ClickToMovePlayer player;
         public GridPathfinder Navigation { get; private set; }
+        public int GridWidth => Width;
+        public int GridHeight => Height;
+        public float GridCellSize => CellSize;
+        public float CharacterRadius => PlayerRadius;
+        public Vector3 GridOrigin => Origin;
+        public bool GameplayBlocked => showcase != null && showcase.BlocksGameplay;
 
         private void Awake()
         {
@@ -42,14 +54,15 @@ namespace FireSafety.Movement
             Wall("Partition North", 0, 6.5f, 0.3f, 3, wall);
             Wall("Kitchen / Bedroom Wall", 5, 0, 10, 0.3f, wall);
             Furniture("Sofa", -7.5f, 2, 2.2f, 3.5f, 0.7f, teal);
-            Furniture("Coffee Table", -4.5f, 2, 1.3f, 2, 0.45f, wood);
+            var table = Furniture("Coffee Table", -4.5f, 2, 1.3f, 2, 0.45f, wood);
             Furniture("Rug", -5.4f, 2, 5, 5, 0.015f, cream, false);
-            Furniture("Kitchen Cabinets", 7, -6.8f, 5, 1.1f, 0.8f, white);
+            var cabinets = Furniture("Kitchen Cabinets", 7, -6.8f, 5, 1.1f, 0.8f, white);
             Furniture("Countertop", 8.7f, -4.5f, 1.1f, 3.5f, 0.8f, white);
             Furniture("Dining Table", 4, -3.5f, 2, 1.5f, 0.55f, wood);
-            Furniture("Bed", 6.5f, 5, 2.8f, 4, 0.45f, teal);
+            var bed = Furniture("Bed", 6.5f, 5, 2.8f, 4, 0.45f, teal);
             Furniture("Pillow", 6.5f, 6.2f, 2.4f, 0.8f, 0.6f, white);
             Furniture("Wardrobe", 8.7f, 1.2f, 1.1f, 1.3f, 1f, wood);
+            BuildFireSites(table, bed, cabinets, dark, white);
             HouseOpenings.Build(transform, Material(new Color(0.76f, 0.48f, 0.23f)), white,
                 Material(new Color(0.28f, 0.72f, 0.88f)), dark, openings);
             foreach (OpenableObject opening in openings)
@@ -84,6 +97,8 @@ namespace FireSafety.Movement
             var interaction = gameObject.AddComponent<ObjectInteraction>();
             interaction.Initialize(view, player, this, CanPlaceDoor);
             player.SetInteraction(interaction);
+            showcase = gameObject.AddComponent<FireShowcase>();
+            showcase.Initialize(this, player);
         }
 
         public bool IsFloor(Collider surface) => floors.Contains(surface);
@@ -116,9 +131,53 @@ namespace FireSafety.Movement
                 }
                 foreach (OpenableObject opening in openings)
                     if (opening.IsDoor && OverlapsPlayer(opening.NavigationBounds, point)) walkable[cell] = false;
+                if (fire != null && fire.BlocksCell(cell)) walkable[cell] = false;
             }
+            // Keep existing paths when growing flames have not changed any walkable cells.
+            bool changed = navigationMask == null;
+            if (!changed)
+                for (int cell = 0; cell < walkable.Length; cell++)
+                    if (walkable[cell] != navigationMask[cell]) { changed = true; break; }
+            if (!changed) return;
+            navigationMask = walkable;
             Navigation = new GridPathfinder(Width, Height, walkable);
         }
+
+        public void AttachFire(FireHazard hazard) => fire = hazard;
+        public void RefreshFireNavigation() => BuildNavigation();
+        public FireSite GetFireSite(FireLocation location) => fireSites[location];
+        public bool IsFireDanger(Vector3 position) => fire != null
+            && fire.Overlaps(new Bounds(position, Vector3.zero), PlayerRadius);
+
+        public float SurfaceHeightAt(Vector3 position)
+        {
+            float height = 0f;
+            foreach (Bounds obstacle in obstacles)
+                if (position.x >= obstacle.min.x && position.x <= obstacle.max.x
+                    && position.z >= obstacle.min.z && position.z <= obstacle.max.z)
+                    height = Mathf.Max(height, obstacle.max.y);
+            return height;
+        }
+
+        public bool[] CreateFirePassageMask()
+        {
+            var passage = new bool[Width * Height];
+            for (int cell = 0; cell < passage.Length; cell++)
+            {
+                Vector3 point = CellToWorld(cell);
+                passage[cell] = true;
+                // Test whole cell footprints, not just centres: thin walls must not leak fire.
+                foreach (Bounds wall in walls)
+                    if (OverlapsCell(wall, point)) { passage[cell] = false; break; }
+                foreach (OpenableObject opening in openings)
+                    if (opening.IsDoor && !opening.IsOpen && OverlapsCell(opening.NavigationBounds, point)) passage[cell] = false;
+            }
+            return passage;
+        }
+
+        private static bool OverlapsCell(Bounds bounds, Vector3 point)
+            => point.x >= bounds.min.x - CellSize * 0.5f && point.x <= bounds.max.x + CellSize * 0.5f
+                && point.z >= bounds.min.z - CellSize * 0.5f && point.z <= bounds.max.z + CellSize * 0.5f;
 
         private static bool OverlapsPlayer(Bounds bounds, Vector3 point)
             => point.x >= bounds.min.x - PlayerRadius && point.x <= bounds.max.x + PlayerRadius
@@ -128,7 +187,8 @@ namespace FireSafety.Movement
         {
             Vector3 position = player.transform.position;
             // Protect the actual player and the grid anchor needed for their next route.
-            return !OverlapsPlayer(bounds, position) && !OverlapsPlayer(bounds, CellToWorld(WorldToCell(position)));
+            return !OverlapsPlayer(bounds, position) && !OverlapsPlayer(bounds, CellToWorld(WorldToCell(position)))
+                && (fire == null || !fire.Overlaps(bounds, 0.05f));
         }
 
         private void OnDoorChanged()
@@ -144,9 +204,12 @@ namespace FireSafety.Movement
         }
 
         private void Wall(string name, float x, float z, float width, float depth, Material material)
-            => Furniture(name, x, z, width, depth, 1.2f, material);
+        {
+            Furniture(name, x, z, width, depth, 1.2f, material);
+            walls.Add(new Bounds(new Vector3(x, 0.6f, z), new Vector3(width, 1.2f, depth)));
+        }
 
-        private void Furniture(string name, float x, float z, float width, float depth, float height,
+        private GameObject Furniture(string name, float x, float z, float width, float depth, float height,
             Material material, bool blocks = true)
         {
             Vector3 size = new Vector3(width, height, depth);
@@ -158,6 +221,27 @@ namespace FireSafety.Movement
                 // A rug is a walkable click surface, unlike furniture.
                 floors.Add(item.GetComponent<Collider>());
             }
+            return item;
+        }
+
+        private void BuildFireSites(GameObject table, GameObject bed, GameObject cabinets, Material dark, Material metal)
+        {
+            fireSites.Add(FireLocation.Table, new FireSite(new Vector3(-4.75f, 0.45f, 1.25f), table.transform, table.GetComponent<Collider>()));
+            fireSites.Add(FireLocation.Bed, new FireSite(new Vector3(5.25f, 0.45f, 4.25f), bed.transform, bed.GetComponent<Collider>()));
+            var bottle = Primitive("Paint bottle", PrimitiveType.Cylinder, transform, new Vector3(-7.25f, 0.32f, -4.25f),
+                new Vector3(0.35f, 0.32f, 0.35f), Material(new Color(0.45f, 0.22f, 0.65f)));
+            Primitive("Bottle cap", PrimitiveType.Cylinder, bottle.transform, new Vector3(0f, 1.05f, 0f),
+                new Vector3(0.6f, 0.12f, 0.6f), dark);
+            obstacles.Add(new Bounds(new Vector3(-7.25f, 0.32f, -4.25f), new Vector3(0.35f, 0.64f, 0.35f)));
+            fireSites.Add(FireLocation.PaintBottle, new FireSite(new Vector3(-7.25f, 0.72f, -4.25f), bottle.transform, bottle.GetComponent<Collider>()));
+            var hob = new GameObject("Gas hob"); hob.transform.SetParent(transform, false);
+            Primitive("Hob surface", PrimitiveType.Cube, hob.transform, new Vector3(6.25f, 0.85f, -6.75f), new Vector3(1.1f, 0.1f, 0.8f), dark);
+            Primitive("Gas burner", PrimitiveType.Cylinder, hob.transform, new Vector3(6.25f, 0.92f, -6.75f), new Vector3(0.5f, 0.02f, 0.5f), metal);
+            fireSites.Add(FireLocation.Hob, new FireSite(new Vector3(6.25f, 0.95f, -6.75f), hob.transform, cabinets.GetComponent<Collider>()));
+            var fryer = new GameObject("Deep fryer"); fryer.transform.SetParent(transform, false);
+            Primitive("Fryer body", PrimitiveType.Cube, fryer.transform, new Vector3(8.25f, 0.95f, -6.75f), new Vector3(0.8f, 0.3f, 0.7f), metal);
+            Primitive("Oil basket", PrimitiveType.Cube, fryer.transform, new Vector3(8.25f, 1.12f, -6.75f), new Vector3(0.6f, 0.04f, 0.5f), Material(new Color(0.46f, 0.27f, 0.06f)));
+            fireSites.Add(FireLocation.DeepFryer, new FireSite(new Vector3(8.25f, 1.15f, -6.75f), fryer.transform, cabinets.GetComponent<Collider>()));
         }
 
         private GameObject Box(string name, Vector3 position, Vector3 size, Material material)

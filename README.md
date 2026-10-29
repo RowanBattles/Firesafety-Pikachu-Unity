@@ -1,11 +1,12 @@
-# Fire Safety — house prototype
+# Fire Safety — fire showcase
 
 Unity **6000.6.7f1**, Universal Render Pipeline, New Input System.
 
 ## Play
 
 1. Open the project in Unity and open `Assets/Scenes/SampleScene.unity`.
-2. Press **Play** and click inside the **Game** window.
+2. Press **Play**, click inside the **Game** window and choose fire class **A**,
+   **B**, **C** or **F**. Class A also lets you choose **Table** or **Bed**.
 3. Left-click an open spot on the floor. The character walks there, going around
    furniture and through doorways to reach other rooms.
 4. Click again while walking to change the destination. The yellow dot marks
@@ -15,6 +16,36 @@ Unity **6000.6.7f1**, Universal Render Pipeline, New Input System.
    spot beside its frame first; only then does its action menu appear. Select
    **Do nothing**, or **Open** / **Close** depending on its current state.
    Press **Escape** or click outside the menu to dismiss it without taking action.
+6. Click the flames to walk to a safe, reachable spot nearby. The fire popup
+   shows its current size in centimetres and a **Continue** button. The fire
+   keeps growing while this popup is open.
+
+## Fire scenarios
+
+| Class | Starting location |
+| --- | --- |
+| A | Coffee table or bed |
+| B | Paint bottle in the living room |
+| C | Gas hob on the kitchen counter |
+| F | Deep fryer on the kitchen counter |
+
+Every scenario starts at **20 cm**. Growth accelerates exponentially, with a
+15-second doubling time. The spread is resolved on a 0.5-metre grid; the popup
+reports the occupied footprint's width in cm. Room boundaries naturally limit
+this footprint even though the fire continues developing inside the room.
+
+Furniture can burn. Solid walls stop spread, and a closed door contains fire
+in its room. Open doors allow it into connected rooms; the outside of the house
+never burns. If a door is opened late, the fire advances through the doorway
+rather than instantly appearing throughout the next room. Closing a door does
+not remove fire that has already spread to the other side. A burning doorway
+cannot be closed or opened safely.
+
+Burning space is excluded from walking and interaction routes. Routes are
+rechecked as the fire grows. If fire reaches the character, the demo ends with
+**Caught by the fire** and a **Restart demo** button. Stop and restart Play mode
+to choose another scenario at any time. Extinguishing, scoring and the escape
+timer are not part of this showcase yet.
 
 The character must be within 0.9 metres of the frame, with no wall, other door
 or tall furniture blocking access. Objects in rooms behind closed doors cannot
@@ -37,7 +68,7 @@ The front door is interactive, but the outside path is still decorative.
 
 The camera looks straight down and keeps the character exactly in the centre.
 Destinations snap to a 0.5-metre grid. This prototype contains a living room,
-kitchen and bedroom. Fire, escape mechanics, the timer and scoring will follow
+kitchen and bedroom. Escape mechanics, the timer and scoring will follow
 in later steps; the front path is currently decorative.
 
 The **House Prototype** scene object creates the house and character when you
@@ -63,6 +94,15 @@ for short, soft shadows at 30% strength. There is no instruction or movement fee
 - `Interaction/ObjectInteraction`: finds a reachable approach, waits for arrival,
   checks interaction distance and obstruction, then displays the English action
   popup separately from movement. Menu clicks never set a walking destination.
+- `Interaction/WorldInteractable`: shares the walk-first interaction contract
+  between doors, windows and fire. Fire inspection uses **Continue** instead
+  of the door/window toggle actions.
+- `Fire/FireSimulation`: engine-independent exponential growth and room/door
+  spread model, with fixed simulation steps to avoid frame-rate-dependent leaks.
+- `Fire/FireHazard`: draws orange/yellow flames, supplies hazard footprints and
+  updates the walking grid as the fire expands.
+- `Fire/FireShowcase`: handles class selection, starts the matching scenario,
+  advances the simulation and shows the restart screen when the player is caught.
 
 ## Validation
 
@@ -71,8 +111,23 @@ for short, soft shadows at 30% strength. There is no instruction or movement fee
 and run the program with a C# compiler/runtime. The checks cover routes through
 a doorway, sealed rooms, wall edges, invalid destinations, new route requests
 and selecting reachable approach spots rather than inaccessible nearby cells.
+`Tests/FireSimulationTests.cs` can be compiled separately alongside
+`Assets/Scripts/Fire/FireSimulation.cs`. It covers all class/location pairs,
+small starts, exponential growth, containment, opening doors late, persistence
+after a door closes, frame slicing and sealed corners.
 Also check the following in the Unity Editor:
 
+- Start each class and both A locations: verify the right object burns and
+  movement is blocked until selection is finished.
+- Inspect a small fire: walk first, display size in cm, **Continue** closes the
+  popup and fire continues growing during inspection.
+- Leave both internal doors closed: verify kitchen/bedroom fire stays in its room.
+- Open a door while fire is developing: verify spread through the gap, without
+  flames appearing through the solid wall or outside the house.
+- Attempt to close an engulfed doorway: the action must be refused.
+- Click a path crossing fire: the character must find a safe route or stay put.
+- Let fire reach the character: verify **Restart demo** returns to class selection
+  and the next scenario starts small again.
 - Walk from the living room to the kitchen and bedroom, and around the coffee table.
 - With both internal doors closed, verify the character cannot enter either room.
 - From far away, click a living-room window: the character should walk to its

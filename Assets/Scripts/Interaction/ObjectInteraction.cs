@@ -10,13 +10,12 @@ namespace FireSafety.Interaction
     [DefaultExecutionOrder(-100)]
     public sealed class ObjectInteraction : MonoBehaviour
     {
-        [SerializeField, Min(0.1f)] private float interactionRange = 0.9f;
         private Camera view;
         private ClickToMovePlayer player;
         private HousePrototype house;
         private Func<Bounds, bool> canPlaceDoor;
-        private OpenableObject selected;
-        private OpenableObject approaching;
+        private WorldInteractable selected;
+        private WorldInteractable approaching;
         private GridPathfinder approachNavigation;
         private readonly List<int> approachPath = new List<int>();
         private int consumedFrame = -1;
@@ -31,8 +30,9 @@ namespace FireSafety.Interaction
         private float PopupWidth => Mathf.Min(360f, Screen.width - 24f);
         private Rect CancelButton => new Rect(PopupRect.x + 18f, PopupRect.y + 106f,
             (PopupWidth - 48f) * 0.5f, 38f);
-        private Rect ToggleButton => new Rect(PopupRect.center.x + 6f, PopupRect.y + 106f,
-            (PopupWidth - 48f) * 0.5f, 38f);
+        private Rect ToggleButton => selected != null && !selected.ShowCancel
+            ? new Rect(PopupRect.x + 18f, PopupRect.y + 106f, PopupWidth - 36f, 38f)
+            : new Rect(PopupRect.center.x + 6f, PopupRect.y + 106f, (PopupWidth - 48f) * 0.5f, 38f);
 
         public void Initialize(Camera camera, ClickToMovePlayer character, HousePrototype layout,
             Func<Bounds, bool> doorValidator)
@@ -46,6 +46,7 @@ namespace FireSafety.Interaction
         private void Update()
         {
             if (view == null || player == null || house == null) return;
+            if (house.GameplayBlocked) { Dismiss(); return; }
             if ((selected != null || approaching != null) && Keyboard.current != null
                 && Keyboard.current.escapeKey.wasPressedThisFrame)
             {
@@ -86,19 +87,19 @@ namespace FireSafety.Interaction
                 consumedFrame = Time.frameCount;
                 Vector2 guiPointer = new Vector2(pointer.x, Screen.height - pointer.y);
                 // New Input System cannot feed IMGUI controls: handle popup clicks here too.
-                if (CancelButton.Contains(guiPointer)) Dismiss();
+                if (selected.ShowCancel && CancelButton.Contains(guiPointer)) Dismiss();
                 else if (ToggleButton.Contains(guiPointer))
                 {
                     if (!CanInteractFrom(selected, player.transform.position)) Dismiss();
-                    else if (selected.TryToggle(canPlaceDoor, out message)) Dismiss();
+                    else if (selected.TryInteract(canPlaceDoor, out message)) Dismiss();
                 }
                 else if (!PopupRect.Contains(guiPointer)) Dismiss();
                 return;
             }
 
-            OpenableObject target = null;
+            WorldInteractable target = null;
             if (Physics.Raycast(view.ScreenPointToRay(pointer), out RaycastHit hit, 100f))
-                target = hit.collider.GetComponentInParent<OpenableObject>();
+                target = hit.collider.GetComponentInParent<WorldInteractable>();
             if (target == null)
             {
                 if (approaching != null)
@@ -113,7 +114,7 @@ namespace FireSafety.Interaction
             BeginApproach(target);
         }
 
-        private void BeginApproach(OpenableObject target)
+        private void BeginApproach(WorldInteractable target)
         {
             approaching = null;
             selected = null;
@@ -131,10 +132,10 @@ namespace FireSafety.Interaction
             player.FollowPath(approachPath);
         }
 
-        private bool CanInteractFrom(OpenableObject target, Vector3 position)
+        private bool CanInteractFrom(WorldInteractable target, Vector3 position)
         {
             Vector3 point = target.InteractionPoint(position);
-            if ((point - position).sqrMagnitude > interactionRange * interactionRange) return false;
+            if ((point - position).sqrMagnitude > target.UseRange * target.UseRange || house.IsFireDanger(position)) return false;
             // Check at body height so low walls cannot be bypassed by looking over their tops.
             Vector3 start = new Vector3(position.x, 0.6f, position.z);
             Vector3 end = new Vector3(point.x, 0.6f, point.z);
@@ -143,7 +144,7 @@ namespace FireSafety.Interaction
             foreach (RaycastHit hit in Physics.RaycastAll(start, direction.normalized, direction.magnitude,
                 Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
             {
-                if (hit.collider.GetComponentInParent<OpenableObject>() != target) return false;
+                if (!target.OwnsCollider(hit.collider)) return false;
             }
             return true;
         }
@@ -165,10 +166,10 @@ namespace FireSafety.Interaction
             GUI.Box(popup, GUIContent.none, GUI.skin.window);
             GUI.Label(new Rect(popup.x + 18f, popup.y + 14f, popup.width - 36f, 28f), selected.DisplayName, titleStyle);
             GUI.Label(new Rect(popup.x + 18f, popup.y + 46f, popup.width - 36f, 24f),
-                selected.IsOpen ? "Status: Open" : "Status: Closed", textStyle);
+                selected.StatusText, textStyle);
             GUI.Label(new Rect(popup.x + 18f, popup.y + 74f, popup.width - 36f, 24f),
-                "What would you like to do?", textStyle);
-            DrawButton(CancelButton, "Do nothing");
+                selected.Prompt, textStyle);
+            if (selected.ShowCancel) DrawButton(CancelButton, "Do nothing");
             DrawButton(ToggleButton, selected.ActionLabel);
             if (!string.IsNullOrEmpty(message))
                 GUI.Label(new Rect(popup.x + 18f, popup.y + 154f, popup.width - 36f, 48f), message, textStyle);

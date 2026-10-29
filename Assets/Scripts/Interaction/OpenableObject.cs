@@ -6,12 +6,14 @@ namespace FireSafety.Interaction
     public enum OpeningKind { Door, Window }
 
     // Owns the open/closed state and hinged visual, independently of mouse input.
-    public sealed class OpenableObject : MonoBehaviour
+    public sealed class OpenableObject : WorldInteractable
     {
-        public string DisplayName { get; private set; }
+        private string displayName;
+        public override string DisplayName => displayName;
+        public override string StatusText => IsOpen ? "Status: Open" : "Status: Closed";
         public bool IsOpen { get; private set; }
         public bool IsDoor { get; private set; }
-        public string ActionLabel => IsOpen ? "Close" : "Open";
+        public override string ActionLabel => IsOpen ? "Close" : "Open";
         public Bounds NavigationBounds => IsOpen ? openBounds : closedBounds;
         public Bounds InteractionBounds { get; private set; }
         public event Action StateChanged;
@@ -25,7 +27,7 @@ namespace FireSafety.Interaction
         public void Initialize(string displayName, OpeningKind kind, Transform leafHinge,
             Collider panel, float openingAngle)
         {
-            DisplayName = displayName;
+            this.displayName = displayName;
             IsDoor = kind == OpeningKind.Door;
             hinge = leafHinge;
             closedRotation = hinge.localRotation;
@@ -45,7 +47,7 @@ namespace FireSafety.Interaction
             Physics.SyncTransforms();
         }
 
-        public Vector3 InteractionPoint(Vector3 from)
+        public override Vector3 InteractionPoint(Vector3 from)
         {
             Bounds bounds = InteractionBounds;
             return new Vector3(Mathf.Clamp(from.x, bounds.min.x, bounds.max.x), from.y,
@@ -57,8 +59,7 @@ namespace FireSafety.Interaction
             Bounds targetBounds = IsOpen ? closedBounds : openBounds;
             if (IsDoor && !canPlaceDoor(targetBounds))
             {
-                message = IsOpen ? "Move away from the door before closing it."
-                    : "Move away from the door before opening it.";
+                message = "The doorway must be clear of the player and fire.";
                 return false;
             }
 
@@ -69,5 +70,8 @@ namespace FireSafety.Interaction
             message = "";
             return true;
         }
+
+        public override bool TryInteract(Func<Bounds, bool> canPlaceDoor, out string message)
+            => TryToggle(canPlaceDoor, out message);
     }
 }
