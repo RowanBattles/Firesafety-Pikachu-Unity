@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using FireSafety.Interaction;
 using FireSafety.Fire;
 using FireSafety.Visibility;
+using FireSafety.Equipment;
 using UnityEngine;
 
 namespace FireSafety.Movement
@@ -30,7 +31,9 @@ namespace FireSafety.Movement
         public float GridCellSize => CellSize;
         public float CharacterRadius => PlayerRadius;
         public Vector3 GridOrigin => Origin;
-        public bool GameplayBlocked => showcase != null && showcase.BlocksGameplay;
+        public EquipmentSystem Equipment { get; private set; }
+        public bool ScenarioBlocked => showcase != null && showcase.BlocksGameplay;
+        public bool GameplayBlocked => ScenarioBlocked || Equipment != null && Equipment.BlocksGameplay;
         public int OcclusionVersion { get; private set; }
 
         private void Awake()
@@ -61,10 +64,12 @@ namespace FireSafety.Movement
             Furniture("Rug", -5.4f, 2, 5, 5, 0.015f, cream, false);
             var cabinets = Furniture("Kitchen Cabinets", 7, -6.8f, 5, 1.1f, 0.8f, white);
             Furniture("Countertop", 8.7f, -4.5f, 1.1f, 3.5f, 0.8f, white);
-            Furniture("Dining Table", 4, -3.5f, 2, 1.5f, 0.55f, wood);
+            Furniture("Dining Table", 5f, -3.5f, 2, 1.5f, 0.55f, wood);
             var bed = Furniture("Bed", 6.5f, 5, 2.8f, 4, 0.45f, teal);
             Furniture("Pillow", 6.5f, 6.2f, 2.4f, 0.8f, 0.6f, white);
             Furniture("Wardrobe", 8.7f, 1.2f, 1.1f, 1.3f, 1f, wood);
+            var sink = Furniture("Utility sink", 3.9f, -6.75f, 1.2f, 1f, 0.8f, white);
+            // sink.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
             BuildFireSites(table, bed, cabinets, dark, white);
             HouseOpenings.Build(transform, Material(new Color(0.76f, 0.48f, 0.23f)), white,
                 Material(new Color(0.28f, 0.72f, 0.88f)), dark, openings);
@@ -100,6 +105,10 @@ namespace FireSafety.Movement
             var interaction = gameObject.AddComponent<ObjectInteraction>();
             interaction.Initialize(view, player, this, CanPlaceDoor);
             player.SetInteraction(interaction);
+            Equipment = gameObject.AddComponent<EquipmentSystem>();
+            Equipment.Initialize(this, player, interaction);
+            EquipmentWorld.Build(transform, Equipment, sink, Material(new Color(0.85f, 0.12f, 0.08f)),
+                white, dark, Material(new Color(0.15f, 0.55f, 0.85f)));
             showcase = gameObject.AddComponent<FireShowcase>();
             showcase.Initialize(this, player);
             var fog = new GameObject("Room visibility");

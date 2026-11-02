@@ -40,6 +40,7 @@ public static class SmokeSimulationTests
         var fast = new SmokeSimulation(11, 5, 0.5);
         fast.Advance(5, Passage(true), cell => cell == source);
         var fire = new FireSimulation(11, 5, 0.5, source, FireType.A, FireLocation.Table);
+        fire.Advance(20, Passage(true)); // Compare spread after the initial hold has ended.
         fire.Advance(5, Passage(true));
         Check(fast.DensityAt(30) > 0 && !fire.IsBurning(30), "Smoke must spread much faster than a growing fire");
         var whole = new SmokeSimulation(11, 5, 0.5);

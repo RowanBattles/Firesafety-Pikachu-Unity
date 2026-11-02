@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using FireSafety.Interaction;
 using FireSafety.Movement;
+using FireSafety.Equipment;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -13,9 +14,17 @@ namespace FireSafety.Fire
         public override string DisplayName => "Class " + Simulation.Type + " fire";
         public override string StatusText => "Current fire size: " + Simulation.SizeCm.ToString("0") + " cm";
         public override string ActionLabel => "Continue";
-        public override string Prompt => "";
+        public override string Prompt => Simulation.SizeCm >= ExtinguishingRules.MaximumSizeCm
+            ? "Too large to extinguish. Evacuate." : "";
         public override bool ShowCancel => false;
-        public override float UseRange => 1.4f;
+        private bool UsesPowderRange => house.Equipment.Inventory.Held != null
+            && house.Equipment.Inventory.Held.Kind == EquipmentKind.AbcPowderExtinguisher
+            && house.Equipment.Inventory.Held.CanDischarge && Simulation.SizeCm < ExtinguishingRules.MaximumSizeCm;
+        public override float UseRange => UsesPowderRange ? 4f : 1.4f;
+        public override float MinimumUseRange => UsesPowderRange ? 3f : 0f;
+        public override string SecondaryActionLabel => !Simulation.IsExtinguished
+            && Simulation.SizeCm < ExtinguishingRules.MaximumSizeCm && house.Equipment.Inventory.Held != null
+            ? "Extinguish the fire with " + house.Equipment.Inventory.Held.Name : null;
         private HousePrototype house;
         private FireSite site;
         private Mesh mesh;
@@ -43,6 +52,7 @@ namespace FireSafety.Fire
 
         public void Tick(float seconds)
         {
+            if (Simulation.IsExtinguished) return;
             Simulation.Advance(seconds, house.CreateFirePassageMask());
             Refresh();
         }
@@ -59,6 +69,8 @@ namespace FireSafety.Fire
 
         public override Vector3 InteractionPoint(Vector3 from)
         {
+            // Keep the working distance stable as this small source grows during the question.
+            if (UsesPowderRange) return new Vector3(site.Position.x, from.y, site.Position.z);
             Vector3 closest = from;
             float best = float.PositiveInfinity;
             foreach (Bounds tile in footprint)
@@ -79,6 +91,11 @@ namespace FireSafety.Fire
             message = "";
             return true; // Continue closes the inspection; fire keeps growing throughout.
         }
+
+        public override bool TrySecondaryInteract(out string message)
+            => house.Equipment.BeginExtinguishing(this, out message);
+
+        public void RefreshAfterExtinguishing() => Refresh();
 
         private void Refresh()
         {
@@ -111,7 +128,7 @@ namespace FireSafety.Fire
             mesh.subMeshCount = 2;
             mesh.SetTriangles(outer, 0); mesh.SetTriangles(core, 1);
             mesh.RecalculateBounds();
-            hitSurface.sharedMesh = mesh;
+            if (!Simulation.IsExtinguished) hitSurface.sharedMesh = mesh;
             Physics.SyncTransforms();
             house.RefreshFireNavigation();
         }

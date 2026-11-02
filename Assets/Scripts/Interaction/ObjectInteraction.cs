@@ -25,14 +25,18 @@ namespace FireSafety.Interaction
         private GUIStyle buttonStyle;
 
         public bool BlocksMovementInput => selected != null || consumedFrame == Time.frameCount;
+        private bool HasSecondaryAction => selected != null && !string.IsNullOrEmpty(selected.SecondaryActionLabel);
+        private float PopupHeight => HasSecondaryAction ? 280f : 210f;
+        private float ActionY => HasSecondaryAction ? 166f : 106f;
         private Rect PopupRect => new Rect((Screen.width - PopupWidth) * 0.5f,
-            (Screen.height - 210f) * 0.5f, PopupWidth, 210f);
+            (Screen.height - PopupHeight) * 0.5f, PopupWidth, PopupHeight);
         private float PopupWidth => Mathf.Min(360f, Screen.width - 24f);
-        private Rect CancelButton => new Rect(PopupRect.x + 18f, PopupRect.y + 106f,
+        private Rect CancelButton => new Rect(PopupRect.x + 18f, PopupRect.y + ActionY,
             (PopupWidth - 48f) * 0.5f, 38f);
         private Rect ToggleButton => selected != null && !selected.ShowCancel
-            ? new Rect(PopupRect.x + 18f, PopupRect.y + 106f, PopupWidth - 36f, 38f)
-            : new Rect(PopupRect.center.x + 6f, PopupRect.y + 106f, (PopupWidth - 48f) * 0.5f, 38f);
+            ? new Rect(PopupRect.x + 18f, PopupRect.y + ActionY, PopupWidth - 36f, 38f)
+            : new Rect(PopupRect.center.x + 6f, PopupRect.y + ActionY, (PopupWidth - 48f) * 0.5f, 38f);
+        private Rect SecondaryButton => new Rect(PopupRect.x + 18f, PopupRect.y + 106f, PopupWidth - 36f, 50f);
 
         public void Initialize(Camera camera, ClickToMovePlayer character, HousePrototype layout,
             Func<Bounds, bool> doorValidator)
@@ -56,7 +60,8 @@ namespace FireSafety.Interaction
             }
 
             // Recheck access while a menu is open as well as immediately before using the object.
-            if (selected != null && !CanInteractFrom(selected, player.transform.position)) Dismiss();
+            if (selected != null && !CanInteractFrom(selected, player.transform.position))
+            { Dismiss(); return; }
 
             if (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame)
             {
@@ -88,6 +93,11 @@ namespace FireSafety.Interaction
                 Vector2 guiPointer = new Vector2(pointer.x, Screen.height - pointer.y);
                 // New Input System cannot feed IMGUI controls: handle popup clicks here too.
                 if (selected.ShowCancel && CancelButton.Contains(guiPointer)) Dismiss();
+                else if (HasSecondaryAction && SecondaryButton.Contains(guiPointer))
+                {
+                    if (!CanInteractFrom(selected, player.transform.position)) Dismiss();
+                    else if (selected.TrySecondaryInteract(out message)) Dismiss();
+                }
                 else if (ToggleButton.Contains(guiPointer))
                 {
                     if (!CanInteractFrom(selected, player.transform.position)) Dismiss();
@@ -140,10 +150,14 @@ namespace FireSafety.Interaction
             player.FollowPath(approachPath);
         }
 
-        private bool CanInteractFrom(WorldInteractable target, Vector3 position)
+        public bool CanInteractFrom(WorldInteractable target, Vector3 position)
         {
+            if (target == null) return false;
             Vector3 point = target.InteractionPoint(position);
-            if ((point - position).sqrMagnitude > target.UseRange * target.UseRange || house.IsFireDanger(position)) return false;
+            float distanceSquared = (point - position).sqrMagnitude;
+            if (distanceSquared > target.UseRange * target.UseRange
+                || distanceSquared < target.MinimumUseRange * target.MinimumUseRange
+                || house.IsFireDanger(position)) return false;
             // Check at body height so low walls cannot be bypassed by looking over their tops.
             Vector3 start = new Vector3(position.x, 0.6f, position.z);
             Vector3 end = new Vector3(point.x, 0.6f, point.z);
@@ -164,7 +178,7 @@ namespace FireSafety.Interaction
             {
                 titleStyle = new GUIStyle(GUI.skin.label) { fontSize = 18, fontStyle = FontStyle.Bold };
                 textStyle = new GUIStyle(GUI.skin.label) { fontSize = 14, wordWrap = true };
-                buttonStyle = new GUIStyle(GUI.skin.button) { fontSize = 14 };
+                buttonStyle = new GUIStyle(GUI.skin.button) { fontSize = 14, wordWrap = true };
             }
             Color previousColor = GUI.color;
             GUI.color = new Color(0f, 0f, 0f, 0.35f);
@@ -175,12 +189,13 @@ namespace FireSafety.Interaction
             GUI.Label(new Rect(popup.x + 18f, popup.y + 14f, popup.width - 36f, 28f), selected.DisplayName, titleStyle);
             GUI.Label(new Rect(popup.x + 18f, popup.y + 46f, popup.width - 36f, 24f),
                 selected.StatusText, textStyle);
-            GUI.Label(new Rect(popup.x + 18f, popup.y + 74f, popup.width - 36f, 24f),
+            GUI.Label(new Rect(popup.x + 18f, popup.y + 74f, popup.width - 36f, 30f),
                 selected.Prompt, textStyle);
+            if (HasSecondaryAction) DrawButton(SecondaryButton, selected.SecondaryActionLabel);
             if (selected.ShowCancel) DrawButton(CancelButton, "Do nothing");
             DrawButton(ToggleButton, selected.ActionLabel);
             if (!string.IsNullOrEmpty(message))
-                GUI.Label(new Rect(popup.x + 18f, popup.y + 154f, popup.width - 36f, 48f), message, textStyle);
+                GUI.Label(new Rect(popup.x + 18f, popup.y + ActionY + 48f, popup.width - 36f, 48f), message, textStyle);
         }
 
         private void DrawButton(Rect bounds, string label)

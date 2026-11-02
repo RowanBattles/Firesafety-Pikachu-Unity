@@ -1,4 +1,4 @@
-# Fire Safety — fire, smoke and visibility showcase
+# Fire Safety — equipment and extinguishing showcase
 
 Unity **6000.6.7f1**, Universal Render Pipeline, New Input System.
 
@@ -17,8 +17,19 @@ Unity **6000.6.7f1**, Universal Render Pipeline, New Input System.
    **Do nothing**, or **Open** / **Close** depending on its current state.
    Press **Escape** or click outside the menu to dismiss it without taking action.
 6. Click the flames to walk to a safe, reachable spot nearby. The fire popup
-   shows its current size in centimetres and a **Continue** button. The fire
-   keeps growing while this popup is open.
+   shows its current size in centimetres. With an item in your inventory and a
+   fire smaller than 50 cm, it also offers **Extinguish the fire with <item>**.
+   The fire keeps growing while menus and the distance question are open.
+7. Find the red **ABC powder extinguisher** and blue **empty bucket** in the
+   southern part of the living room. Click one, walk to it and choose **Pick up**.
+   Carrying another item changes this to **Swap items**: the old item is left at
+   the new item's exact location, preserving its water/remaining charge.
+8. To fill the bucket, open the kitchen door, enter and click the **water tap** on the
+   utility sink near the kitchen's southwest corner. Select **Fill bucket** and
+   stay there for 4 seconds. **Cancel filling** or **Escape** leaves it empty.
+9. For a small class A fire, a filled bucket can put it out directly. With the
+   ABC extinguisher, the character first walks to a reachable working position
+   3–4 m from the source. Choose its starting-distance range in the question.
 
 ## Fire scenarios
 
@@ -29,8 +40,10 @@ Unity **6000.6.7f1**, Universal Render Pipeline, New Input System.
 | C | Gas hob on the kitchen counter |
 | F | Deep fryer on the kitchen counter |
 
-Every scenario starts at **20 cm**. Growth accelerates exponentially, with a
-15-second doubling time. The spread is resolved on a 0.5-metre grid; the popup
+Every scenario starts at **25 cm** and stays at that size without spreading for
+the first **20 seconds**. Exponential growth then begins, with a 15-second
+doubling time: 50 cm at 35 seconds, then 100 cm at 50 seconds.
+The spread is resolved on a 0.5-metre grid; the popup
 reports the occupied footprint's width in cm. Room boundaries naturally limit
 this footprint even though the fire continues developing inside the room.
 
@@ -44,8 +57,53 @@ cannot be closed or opened safely.
 Burning space is excluded from walking and interaction routes. Routes are
 rechecked as the fire grows. If fire reaches the character, the demo ends with
 **Caught by the fire** and a **Restart demo** button. Stop and restart Play mode
-to choose another scenario at any time. Extinguishing, scoring and the escape
-timer are not part of this showcase yet.
+to choose another scenario at any time. Escape, the three-minute timer and
+calling for help are not part of this showcase yet.
+
+## Inventory, extinguishing and scoring
+
+There is exactly one inventory slot. The carried item is visible beside the
+character and named in the small inventory/score panel. Items can only be
+picked up after walking within reach; hidden or inaccessible items cannot be
+used through closed doors. Swapping exchanges the incoming world item and the
+held item at the incoming item's position. Picking up a filled bucket later
+does not empty it, and picking up a used extinguisher does not recharge it.
+
+The two equipment choices follow the supplied `fire extinguishing.docx`:
+
+| Fire | Filled water bucket | ABC powder extinguisher |
+| --- | --- | --- |
+| A — solid material | Puts out a small fire | Puts out a small fire after the distance question |
+| B — burning liquid | Rejected: water can spread burning liquid | Puts out a small fire after the distance question |
+| C — leaking gas | Rejected | Rejected while the gas supply is on |
+| F — cooking oil | Rejected: water can eject burning oil | Rejected: this extinguisher is not F-rated |
+
+Gas isolation and F-rated equipment are not included in this first equipment
+version, so those scenarios require evacuation rather than extinguishing with
+the supplied items. A generic extinguisher does not suit every fire class.
+
+An attempt is allowed only **below 50 cm**, using the current footprint. The
+size is checked again when the distance question is answered. The action is
+hidden once the fire becomes too large; waiting in a question does not preserve
+eligibility. Empty equipment cannot discharge. An extinguished fire loses its
+flames, collider and walking hazard and stays out, allowing movement through
+the cleared space. A successful discharge empties the bucket/extinguisher.
+
+The reference gives **3–4 m** for the ABC powder model used here. This is not a
+universal distance for all extinguishers. The question offers four choices:
+less than 1 m, 1–2 m, 3–4 m and more than 6 m. A correct, completed attempt earns
+**+10 points**; a wrong distance or unsafe agent choice earns **−5 points** and
+leaves the fire burning without discharging the item. An expired attempt or
+empty item gives no points. One answer is scored once, and an out fire cannot
+award more points. Cancelling the question makes no attempt and changes no score.
+Bucket success also earns +10 points; there is no extinguisher-distance question
+for a bucket. The result explains the decision and the score change.
+
+Filling takes **4 seconds** and requires the same empty bucket and continued
+access to the tap. Cancelling, losing access or dying interrupts it without
+creating water. Fire and smoke continue during filling, questions and result
+panels; smoke still kills after prolonged exposure. There is no health bar or
+smoke-warning panel. Restarting the demo resets inventory, contents and score.
 
 ## Smoke and coughing
 
@@ -107,7 +165,7 @@ The front door is interactive, but the outside path is still decorative.
 
 The camera looks straight down and keeps the character exactly in the centre.
 Destinations snap to a 0.5-metre grid. This prototype contains a living room,
-kitchen and bedroom. Escape mechanics, the timer and scoring will follow
+kitchen and bedroom. Escape mechanics and the timer will follow
 in later steps; the front path is currently decorative.
 
 The **House Prototype** scene object creates the house and character when you
@@ -134,8 +192,15 @@ for short, soft shadows at 30% strength. There is no instruction or movement fee
   checks interaction distance and obstruction, then displays the English action
   popup separately from movement. Menu clicks never set a walking destination.
 - `Interaction/WorldInteractable`: shares the walk-first interaction contract
-  between doors, windows and fire. Fire inspection uses **Continue** instead
-  of the door/window toggle actions.
+  between doors, windows, equipment, the tap and fire. It supports an optional
+  second action and a minimum working distance for extinguisher use.
+- `Equipment/InventoryState`: engine-independent single-slot item state and
+  timed bucket filling, including contents preserved across swaps.
+- `Equipment/ExtinguishingRules`: class/size/contents checks, distance assessment,
+  one-shot scoring and consumption. These rules use the supplied reference.
+- `Equipment/EquipmentSystem`: pickup swaps, filling, quiz/result UI and score.
+- `Equipment/EquipmentWorld`, `PickupEquipment`, `WaterTap`: clickable equipment,
+  carried visuals and the kitchen sink, using the shared walk-first interaction.
 - `Fire/FireSimulation`: engine-independent exponential growth and room/door
   spread model, with fixed simulation steps to avoid frame-rate-dependent leaks.
 - `Fire/FireHazard`: draws orange/yellow flames, supplies hazard footprints and
@@ -167,8 +232,31 @@ after a door closes, frame slicing and sealed corners.
 and clear-air recovery.
 `Tests/VisibilityTests.cs` runs with `VisibilityMap.cs`; it covers closed/open
 doors, corners, the visible door surface and re-hiding previously seen cells.
+`Tests/EquipmentTests.cs` runs with `InventoryState.cs`, `ExtinguishingRules.cs`,
+`FireSimulation.cs` and `SmokeSimulation.cs`. It covers swaps and preserved
+contents, timed/cancelled filling, all class/tool combinations, distance scoring,
+the strict 50 cm limit, growth during the question and permanent extinguishing.
 Also check the following in the Unity Editor:
 
+- Pick up each item and swap back: exactly one item is carried and the other
+  appears at the newly picked item's location. Repeat with a filled bucket and
+  a used extinguisher to check that contents are preserved.
+- Click the kitchen tap behind the closed door: no remote menu should appear.
+  Open the door, approach the tap with the bucket and wait 4 seconds. Verify
+  **Cancel filling**, **Escape**, fire death and smoke death interrupt filling.
+- With no item, inspect a fire: only **Continue** should appear. With an item,
+  verify the extra **Extinguish the fire with ...** action appears below 50 cm.
+- Use ABC powder on a small A/B fire: approach to 3–4 m, answer incorrectly for
+  −5 without discharging, then correctly for +10 and a permanently extinguished
+  fire. Verify no walking destination is created by a quiz or result click.
+- Wait in the distance question past 50 cm: the attempt must stop without
+  discharging or awarding points. No attempt may bypass walls or closed doors.
+- Use a filled bucket on A, B, C and F, and ABC powder on C/F. Check the class
+  restrictions and score feedback; water must never put out burning oil.
+- Put out a small A fire with the bucket. Verify it is empty afterward, the
+  flames disappear, the old hazard no longer blocks navigation and no smoke
+  starts from that out fire. The smoke-exposure mechanics must still work in
+  a separate, unchecked growing-fire run without showing a health bar.
 - Start each class and both A locations: verify the right object burns and
   movement is blocked until selection is finished.
 - Inspect a small fire: walk first, display size in cm, **Continue** closes the
