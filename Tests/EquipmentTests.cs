@@ -24,6 +24,7 @@ public static class EquipmentTests
     }
 
     private static EquipmentItem Powder() => new EquipmentItem(EquipmentKind.AbcPowderExtinguisher);
+    private static EquipmentItem WetChemical() => new EquipmentItem(EquipmentKind.WetChemicalExtinguisher);
 
     public static void Main()
     {
@@ -90,6 +91,32 @@ public static class EquipmentTests
             Check(water.HasWater == (type != FireType.A), "An unsafe water attempt must not discharge water onto the fire");
             Check(result.Points == (type == FireType.A ? 10 : -5), "Wrong water decisions lose points");
         }
+
+        for (int answer = 0; answer < 4; answer++)
+        {
+            var fire = Fire(FireType.F); var item = WetChemical();
+            ExtinguishingOutcome outcome = new ExtinguishingAttempt(fire, item).Resolve(answer);
+            Check(outcome.Extinguished == (answer == 2), "Only the 3–4 m answer (3–3.7 m) should let wet chemical put out cooking oil");
+            Check(outcome.Points == (answer == 2 ? 10 : -5), "Wet chemical distance choices have the right score");
+            Check(item.IsSpent == (answer == 2), "A wrong distance must not discharge the wet chemical extinguisher");
+        }
+
+        foreach (FireType type in new[] { FireType.A, FireType.B, FireType.C, FireType.F })
+        {
+            var fire = Fire(type); var item = WetChemical();
+            ExtinguishingOutcome result = new ExtinguishingAttempt(fire, item).Resolve(2);
+            bool suitable = type == FireType.A || type == FireType.F;
+            Check(result.Extinguished == suitable && item.IsSpent == suitable,
+                "Wet chemical puts out class A and F fires only");
+            Check(result.Points == (suitable ? 10 : -5), "Using wet chemical on burning liquid or gas loses points");
+        }
+
+        var usedWetChemical = WetChemical(); usedWetChemical.Discharge();
+        Check(usedWetChemical.Name == "empty wet chemical extinguisher"
+            && new ExtinguishingAttempt(Fire(FireType.F), usedWetChemical).Resolve(2).Points == 0,
+            "An empty wet chemical extinguisher cannot be reused");
+        Check(ExtinguishingRules.Check(Fire(FireType.F, 50), WetChemical()) == ExtinguishingBlock.TooLarge,
+            "Wet chemical also follows the strict 50 cm limit");
 
         Check(ExtinguishingRules.Check(Fire(FireType.C), Powder()) == ExtinguishingBlock.GasStillOn,
             "Class C requires gas isolation even with C-rated powder");

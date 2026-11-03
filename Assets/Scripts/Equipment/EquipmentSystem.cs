@@ -69,7 +69,7 @@ namespace FireSafety.Equipment
             player.StopMovement();
             consumedFrame = Time.frameCount;
             if (ExtinguishingRules.Check(fire.Simulation, Inventory.Held) != ExtinguishingBlock.None
-                || Inventory.Held.Kind == EquipmentKind.Bucket) ResolveAttempt();
+                || !ExtinguishingRules.IsExtinguisher(Inventory.Held.Kind)) ResolveAttempt();
             else panel = PanelState.Distance;
             return true;
         }
@@ -168,7 +168,7 @@ namespace FireSafety.Equipment
             if (panel == PanelState.Distance)
             {
                 GUI.Label(new Rect(area.x + 18f, area.y + 52f, Width - 36f, 58f),
-                    "At what distance should you start using this ABC powder extinguisher?", textStyle);
+                    "At what distance should you start using this " + Inventory.Held.Name + "?", textStyle);
                 for (int i = 0; i < distances.Length; i++) DrawButton(Choice(i), distances[i]);
                 DrawButton(ContinueButton, "Cancel");
             }

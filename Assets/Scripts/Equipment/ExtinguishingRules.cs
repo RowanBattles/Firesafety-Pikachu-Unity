@@ -9,14 +9,38 @@ namespace FireSafety.Equipment
         public const double MaximumSizeCm = 50;
         public const int CorrectPoints = 10, IncorrectPoints = -5;
 
+        public static bool IsExtinguisher(EquipmentKind kind) => kind != EquipmentKind.Bucket;
+
+        // Which fire classes each item is suitable for:
+        // bucket of water: A only. ABC powder: A, B and C (C still needs the gas turned off).
+        // Wet chemical: A and F (cooking oil). It is not for burning liquids (B) or gas (C).
+        public static bool Suits(EquipmentKind kind, FireType type)
+        {
+            switch (kind)
+            {
+                case EquipmentKind.Bucket: return type == FireType.A;
+                case EquipmentKind.WetChemicalExtinguisher: return type == FireType.A || type == FireType.F;
+                default: return type != FireType.F;
+            }
+        }
+
+        // Index into the distance question's answers:
+        // 0 = less than 1 m, 1 = 1–2 m, 2 = 3–4 m, 3 = more than 6 m.
+        // Both extinguishers start in the 3–4 m range (wet chemical: 3–3.7 m from the team's research).
+        public static int CorrectDistanceChoice(EquipmentKind kind) => 2;
+
+        // Where the character stands to use each extinguisher (minimum and maximum metres from the fire).
+        public static float MinimumWorkingDistance(EquipmentKind kind) => 3f;
+        public static float MaximumWorkingDistance(EquipmentKind kind)
+            => kind == EquipmentKind.WetChemicalExtinguisher ? 3.7f : 4f;
+
         public static ExtinguishingBlock Check(FireSimulation fire, EquipmentItem item)
         {
             if (item == null) return ExtinguishingBlock.NoItem;
             if (fire == null || fire.IsExtinguished) return ExtinguishingBlock.FireOut;
             if (fire.SizeCm >= MaximumSizeCm) return ExtinguishingBlock.TooLarge;
             if (!item.CanDischarge) return ExtinguishingBlock.Empty;
-            if (item.Kind == EquipmentKind.Bucket && fire.Type != FireType.A || fire.Type == FireType.F)
-                return ExtinguishingBlock.WrongAgent;
+            if (!Suits(item.Kind, fire.Type)) return ExtinguishingBlock.WrongAgent;
             // There is no gas-isolation interaction in this first equipment showcase.
             if (fire.Type == FireType.C) return ExtinguishingBlock.GasStillOn;
             return ExtinguishingBlock.None;
@@ -34,7 +58,13 @@ namespace FireSafety.Equipment
                     : "The extinguisher is empty. Find another way to stay safe.";
                 case ExtinguishingBlock.GasStillOn: return "Do not extinguish a gas flame while gas is still escaping. The gas supply cannot be isolated in this scenario. Evacuate.";
                 case ExtinguishingBlock.WrongAgent:
-                    if (type == FireType.F) return "Cooking-oil fires need an F-rated agent. Water can eject burning oil; this ABC extinguisher is not F-rated. Evacuate.";
+                    if (item.Kind == EquipmentKind.WetChemicalExtinguisher)
+                        return type == FireType.C
+                            ? "A wet chemical extinguisher is not for gas fires. Gas must be turned off at the supply, and this scenario cannot do that. Evacuate."
+                            : "A wet chemical extinguisher is made for cooking oil (class F) and solid materials (class A), not for burning liquids such as paint (class B).";
+                    if (type == FireType.F) return item.Kind == EquipmentKind.Bucket
+                        ? "Never use water on a cooking-oil fire: it can make the burning oil erupt. Cooking-oil fires need a wet chemical (F-rated) extinguisher."
+                        : "This ABC powder extinguisher is not F-rated. Cooking-oil fires need a wet chemical (F-rated) extinguisher.";
                     return "Do not use a bucket of water on burning liquid or leaking gas. Use water on ordinary solid materials (class A).";
                 default: return "";
             }
@@ -60,7 +90,7 @@ namespace FireSafety.Equipment
         public ExtinguishingAttempt(FireSimulation fire, EquipmentItem item)
         { this.fire = fire; this.item = item; }
 
-        // For the ABC powder model in the supplied reference, choice 2 is the 3–4 m range.
+        // Extinguishers ask a distance question; see ExtinguishingRules.CorrectDistanceChoice.
         public ExtinguishingOutcome Resolve(int distanceChoice = -1)
         {
             if (IsResolved) return new ExtinguishingOutcome(false, 0, "This attempt has already been resolved.");
@@ -73,19 +103,24 @@ namespace FireSafety.Equipment
                 return new ExtinguishingOutcome(false, points,
                     ExtinguishingRules.Explanation(block, item, fire == null ? FireType.A : fire.Type));
             }
-            if (item.Kind == EquipmentKind.AbcPowderExtinguisher && (distanceChoice < 0 || distanceChoice > 3))
+            bool extinguisher = ExtinguishingRules.IsExtinguisher(item.Kind);
+            bool wetChemical = item.Kind == EquipmentKind.WetChemicalExtinguisher;
+            if (extinguisher && (distanceChoice < 0 || distanceChoice > 3))
                 throw new System.ArgumentOutOfRangeException(nameof(distanceChoice));
             IsResolved = true;
-            if (item.Kind == EquipmentKind.AbcPowderExtinguisher && distanceChoice != 2)
-                return new ExtinguishingOutcome(false, ExtinguishingRules.IncorrectPoints,
-                    "For this ABC powder extinguisher, start at 3–4 metres. The fire is still burning; no agent was discharged.");
+            if (extinguisher && distanceChoice != ExtinguishingRules.CorrectDistanceChoice(item.Kind))
+                return new ExtinguishingOutcome(false, ExtinguishingRules.IncorrectPoints, wetChemical
+                    ? "For this wet chemical extinguisher, start at 3–3.7 metres so the burning oil does not splash onto you. The fire is still burning; no agent was discharged."
+                    : "For this ABC powder extinguisher, start at 3–4 metres. The fire is still burning; no agent was discharged.");
             if (!fire.TryExtinguish(ExtinguishingRules.MaximumSizeCm))
                 return new ExtinguishingOutcome(false, 0, "The fire can no longer be extinguished safely. Evacuate.");
             item.Discharge();
             return new ExtinguishingOutcome(true, ExtinguishingRules.CorrectPoints,
                 item.Kind == EquipmentKind.Bucket
                     ? "The small class A fire is out. The bucket is now empty."
-                    : "Correct: 3–4 metres for this ABC powder model. The fire is out. Powder can reduce visibility and impair breathing indoors; keep an escape route.");
+                    : wetChemical
+                        ? "Correct: 3–3.7 metres for this wet chemical extinguisher. The fire is out. Apply it gently in slow circles so the burning oil does not splash, and turn off the heat if it is safe to do so."
+                        : "Correct: 3–4 metres for this ABC powder model. The fire is out. Powder can reduce visibility and impair breathing indoors; keep an escape route.");
         }
     }
 }

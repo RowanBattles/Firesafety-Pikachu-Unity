@@ -17,11 +17,14 @@ namespace FireSafety.Fire
         public override string Prompt => Simulation.SizeCm >= ExtinguishingRules.MaximumSizeCm
             ? "Too large to extinguish. Evacuate." : "";
         public override bool ShowCancel => false;
-        private bool UsesPowderRange => house.Equipment.Inventory.Held != null
-            && house.Equipment.Inventory.Held.Kind == EquipmentKind.AbcPowderExtinguisher
+        // A ready extinguisher makes the character walk to that extinguisher's working distance.
+        private bool UsesExtinguisherRange => house.Equipment.Inventory.Held != null
+            && ExtinguishingRules.IsExtinguisher(house.Equipment.Inventory.Held.Kind)
             && house.Equipment.Inventory.Held.CanDischarge && Simulation.SizeCm < ExtinguishingRules.MaximumSizeCm;
-        public override float UseRange => UsesPowderRange ? 4f : 1.4f;
-        public override float MinimumUseRange => UsesPowderRange ? 3f : 0f;
+        public override float UseRange => UsesExtinguisherRange
+            ? ExtinguishingRules.MaximumWorkingDistance(house.Equipment.Inventory.Held.Kind) : 1.4f;
+        public override float MinimumUseRange => UsesExtinguisherRange
+            ? ExtinguishingRules.MinimumWorkingDistance(house.Equipment.Inventory.Held.Kind) : 0f;
         public override string SecondaryActionLabel => !Simulation.IsExtinguished
             && Simulation.SizeCm < ExtinguishingRules.MaximumSizeCm && house.Equipment.Inventory.Held != null
             ? "Extinguish the fire with " + house.Equipment.Inventory.Held.Name : null;
@@ -70,7 +73,7 @@ namespace FireSafety.Fire
         public override Vector3 InteractionPoint(Vector3 from)
         {
             // Keep the working distance stable as this small source grows during the question.
-            if (UsesPowderRange) return new Vector3(site.Position.x, from.y, site.Position.z);
+            if (UsesExtinguisherRange) return new Vector3(site.Position.x, from.y, site.Position.z);
             Vector3 closest = from;
             float best = float.PositiveInfinity;
             foreach (Bounds tile in footprint)

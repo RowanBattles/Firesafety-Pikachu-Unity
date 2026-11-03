@@ -108,7 +108,7 @@ namespace FireSafety.Movement
             Equipment = gameObject.AddComponent<EquipmentSystem>();
             Equipment.Initialize(this, player, interaction);
             EquipmentWorld.Build(transform, Equipment, sink, Material(new Color(0.85f, 0.12f, 0.08f)),
-                white, dark, Material(new Color(0.15f, 0.55f, 0.85f)));
+                white, dark, Material(new Color(0.15f, 0.55f, 0.85f)), Material(new Color(0.98f, 0.8f, 0.1f)));
             showcase = gameObject.AddComponent<FireShowcase>();
             showcase.Initialize(this, player);
             var fog = new GameObject("Room visibility");

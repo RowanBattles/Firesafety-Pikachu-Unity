@@ -30,6 +30,10 @@ Unity **6000.6.7f1**, Universal Render Pipeline, New Input System.
 9. For a small class A fire, a filled bucket can put it out directly. With the
    ABC extinguisher, the character first walks to a reachable working position
    3–4 m from the source. Choose its starting-distance range in the question.
+10. For a cooking-oil (class F) fire, open the kitchen door and pick up the red
+   **wet chemical extinguisher** with the yellow band in the kitchen's north-west
+   corner, just inside the door. The character walks to a working position
+   3–3.7 m from the fire before the distance question appears (answer 3–4 m).
 
 ## Fire scenarios
 
@@ -71,16 +75,16 @@ does not empty it, and picking up a used extinguisher does not recharge it.
 
 The two equipment choices follow the supplied `fire extinguishing.docx`:
 
-| Fire | Filled water bucket | ABC powder extinguisher |
-| --- | --- | --- |
-| A — solid material | Puts out a small fire | Puts out a small fire after the distance question |
-| B — burning liquid | Rejected: water can spread burning liquid | Puts out a small fire after the distance question |
-| C — leaking gas | Rejected | Rejected while the gas supply is on |
-| F — cooking oil | Rejected: water can eject burning oil | Rejected: this extinguisher is not F-rated |
+| Fire | Filled water bucket | ABC powder extinguisher | Wet chemical extinguisher |
+| --- | --- | --- | --- |
+| A — solid material | Puts out a small fire | Puts out a small fire after the distance question | Puts out a small fire after the distance question |
+| B — burning liquid | Rejected: water can spread burning liquid | Puts out a small fire after the distance question | Rejected: not for burning liquids |
+| C — leaking gas | Rejected | Rejected while the gas supply is on | Rejected: not for gas |
+| F — cooking oil | Rejected: water can eject burning oil | Rejected: this extinguisher is not F-rated | Puts out a small fire after the distance question |
 
-Gas isolation and F-rated equipment are not included in this first equipment
-version, so those scenarios require evacuation rather than extinguishing with
-the supplied items. A generic extinguisher does not suit every fire class.
+Gas isolation is not included in this equipment version, so the class C scenario
+requires evacuation rather than extinguishing with the supplied items. A generic
+extinguisher does not suit every fire class.
 
 An attempt is allowed only **below 50 cm**, using the current footprint. The
 size is checked again when the distance question is answered. The action is
@@ -90,7 +94,8 @@ flames, collider and walking hazard and stays out, allowing movement through
 the cleared space. A successful discharge empties the bucket/extinguisher.
 
 The reference gives **3–4 m** for the ABC powder model used here. This is not a
-universal distance for all extinguishers. The question offers four choices:
+universal distance for all extinguishers: the team's research gives **3–3.7 m**
+for the wet chemical extinguisher, which is the 3–4 m answer in the question. The question offers four choices:
 less than 1 m, 1–2 m, 3–4 m and more than 6 m. A correct, completed attempt earns
 **+10 points**; a wrong distance or unsafe agent choice earns **−5 points** and
 leaves the fire burning without discharging the item. An expired attempt or
@@ -196,7 +201,8 @@ for short, soft shadows at 30% strength. There is no instruction or movement fee
   second action and a minimum working distance for extinguisher use.
 - `Equipment/InventoryState`: engine-independent single-slot item state and
   timed bucket filling, including contents preserved across swaps.
-- `Equipment/ExtinguishingRules`: class/size/contents checks, distance assessment,
+- `Equipment/ExtinguishingRules`: class/size/contents checks, which fire classes
+  each item suits, each extinguisher's correct distance and working range, distance assessment,
   one-shot scoring and consumption. These rules use the supplied reference.
 - `Equipment/EquipmentSystem`: pickup swaps, filling, quiz/result UI and score.
 - `Equipment/EquipmentWorld`, `PickupEquipment`, `WaterTap`: clickable equipment,

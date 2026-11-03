@@ -5,7 +5,7 @@ namespace FireSafety.Equipment
     public static class EquipmentWorld
     {
         public static void Build(Transform room, EquipmentSystem equipment, GameObject sink,
-            Material red, Material white, Material dark, Material blue)
+            Material red, Material white, Material dark, Material blue, Material yellow)
         {
             var extinguisher = Root(room, "ABC powder extinguisher", new Vector3(-9.64f, 0f, 5f));
             Shape(extinguisher, "Red cylinder", PrimitiveType.Cylinder, new Vector3(0f, 0.4f, 0f),
@@ -21,6 +21,23 @@ namespace FireSafety.Equipment
             extinguisherHitbox.size = new Vector3(0.65f, 0.9f, 0.55f);
             extinguisher.gameObject.AddComponent<PickupEquipment>().Initialize(equipment,
                 EquipmentKind.AbcPowderExtinguisher, extinguisherHitbox, null);
+
+            // Class F: wet chemical extinguisher in the kitchen's north-west corner, beside the door.
+            // Red with a yellow band, like real wet chemical extinguishers, plus a long spray lance.
+            var wetChemical = Root(room, "Wet chemical extinguisher", new Vector3(1.0f, 0f, -0.8f));
+            Shape(wetChemical, "Red cylinder", PrimitiveType.Cylinder, new Vector3(0f, 0.4f, 0f),
+                new Vector3(0.42f, 0.35f, 0.42f), red);
+            Shape(wetChemical, "Yellow band", PrimitiveType.Cylinder, new Vector3(0f, 0.5f, 0f),
+                new Vector3(0.44f, 0.08f, 0.44f), yellow);
+            Shape(wetChemical, "Handle", PrimitiveType.Cube, new Vector3(0.08f, 0.83f, 0f),
+                new Vector3(0.36f, 0.1f, 0.12f), dark);
+            Shape(wetChemical, "Lance", PrimitiveType.Cube, new Vector3(0.27f, 0.6f, 0f),
+                new Vector3(0.07f, 0.7f, 0.07f), dark);
+            var wetChemicalHitbox = wetChemical.gameObject.AddComponent<BoxCollider>();
+            wetChemicalHitbox.center = new Vector3(0f, 0.45f, 0f);
+            wetChemicalHitbox.size = new Vector3(0.65f, 0.9f, 0.55f);
+            wetChemical.gameObject.AddComponent<PickupEquipment>().Initialize(equipment,
+                EquipmentKind.WetChemicalExtinguisher, wetChemicalHitbox, null);
 
             var bucket = Root(room, "Water bucket", new Vector3(9.25f, 0f, -0.75f));
             Shape(bucket, "Bucket body", PrimitiveType.Cylinder, new Vector3(0f, 0.26f, 0f),

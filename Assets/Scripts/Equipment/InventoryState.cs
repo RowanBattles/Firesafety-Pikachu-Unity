@@ -2,7 +2,7 @@ using System;
 
 namespace FireSafety.Equipment
 {
-    public enum EquipmentKind { AbcPowderExtinguisher, Bucket }
+    public enum EquipmentKind { AbcPowderExtinguisher, Bucket, WetChemicalExtinguisher }
 
     // The same item survives being carried, dropped and swapped, including its contents.
     public sealed class EquipmentItem
@@ -11,9 +11,19 @@ namespace FireSafety.Equipment
         public bool HasWater { get; private set; }
         public bool IsSpent { get; private set; }
         public bool CanDischarge => Kind == EquipmentKind.Bucket ? HasWater : !IsSpent;
-        public string Name => Kind == EquipmentKind.Bucket
-            ? (HasWater ? "bucket of water" : "empty bucket")
-            : (IsSpent ? "empty ABC powder extinguisher" : "ABC powder extinguisher");
+        public string Name
+        {
+            get
+            {
+                switch (Kind)
+                {
+                    case EquipmentKind.Bucket: return HasWater ? "bucket of water" : "empty bucket";
+                    case EquipmentKind.WetChemicalExtinguisher:
+                        return IsSpent ? "empty wet chemical extinguisher" : "wet chemical extinguisher";
+                    default: return IsSpent ? "empty ABC powder extinguisher" : "ABC powder extinguisher";
+                }
+            }
+        }
 
         public EquipmentItem(EquipmentKind kind) { Kind = kind; }
 
