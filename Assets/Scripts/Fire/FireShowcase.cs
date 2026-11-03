@@ -1,5 +1,6 @@
 using FireSafety.Movement;
 using FireSafety.Smoke;
+using FireSafety.Gameplay;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
@@ -22,15 +23,18 @@ namespace FireSafety.Fire
         private ClickToMovePlayer player;
         private FireHazard fire;
         private SmokeHazard smoke;
-        private bool diedFromSmoke;
-        private bool choosing = true, choosingLocation, caught;
+        private bool choosing = true, choosingLocation;
+        private readonly ScenarioResult result = new ScenarioResult();
         private int consumedFrame = -1;
-        private float tick;
+        private float tick, nextOpportunityCheck;
         private GUIStyle titleStyle, textStyle, buttonStyle;
-        public bool BlocksGameplay => choosing || caught || consumedFrame == Time.frameCount;
+        public bool BlocksGameplay => choosing || result.IsFinished || consumedFrame == Time.frameCount;
         private Rect Panel => new Rect((Screen.width - PanelWidth) * 0.5f, (Screen.height - 310f) * 0.5f, PanelWidth, 310f);
         private float PanelWidth => Mathf.Min(430f, Screen.width - 24f);
         private Rect Button(int index) => new Rect(Panel.x + 20f, Panel.y + 92f + index * 48f, Panel.width - 40f, 38f);
+        private float ResultsWidth => Mathf.Min(510f, Screen.width - 24f);
+        private Rect ResultsPanel => new Rect((Screen.width - ResultsWidth) * 0.5f, (Screen.height - 390f) * 0.5f, ResultsWidth, 390f);
+        private Rect PlayAgainButton => new Rect(ResultsPanel.x + 20f, ResultsPanel.y + 332f, ResultsWidth - 40f, 38f);
 
         public void Initialize(HousePrototype layout, ClickToMovePlayer character)
         { house = layout; player = character; consumedFrame = Time.frameCount; }
@@ -38,16 +42,20 @@ namespace FireSafety.Fire
         private void Update()
         {
             if (house == null) return;
-            if (choosing || caught)
+            if (choosing || result.IsFinished)
             {
                 player.StopMovement();
                 if (consumedFrame == Time.frameCount) return;
                 if (Mouse.current == null || !Mouse.current.leftButton.wasPressedThisFrame) return;
                 Vector2 pointer = Mouse.current.position.ReadValue();
                 pointer.y = Screen.height - pointer.y;
-                if (caught)
+                if (result.IsFinished)
                 {
-                    if (Button(0).Contains(pointer)) SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+                    if (PlayAgainButton.Contains(pointer))
+                    {
+                        consumedFrame = Time.frameCount;
+                        SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+                    }
                     return;
                 }
                 if (choosingLocation)
@@ -64,13 +72,29 @@ namespace FireSafety.Fire
                 return;
             }
             if (fire == null) return;
+            if (fire.Simulation.IsExtinguished) { CompleteExtinguishing(""); return; }
             tick += Time.deltaTime;
             if (tick >= 0.2f) { fire.Tick(tick); tick = 0f; }
             smoke.Tick(Time.deltaTime);
-            bool fireCaught = house.IsFireDanger(player.transform.position);
-            if (!fireCaught && !smoke.Exposure.IsDead) return;
-            diedFromSmoke = !fireCaught;
-            caught = true;
+            if (house.IsFireDanger(player.transform.position)) { Finish(ScenarioEnding.FireDeath); return; }
+            if (smoke.Exposure.IsDead) { Finish(ScenarioEnding.SmokeDeath); return; }
+            if (house.HasEscaped(player.transform.position)) { Finish(ScenarioEnding.Escaped); return; }
+            if (!result.HadSafeExtinguishingOpportunity && Time.time >= nextOpportunityCheck)
+            {
+                result.ObserveExtinguishingOpportunity(house.Equipment.HasSafeExtinguishingOpportunity(fire, smoke));
+                nextOpportunityCheck = Time.time + 0.5f;
+            }
+        }
+
+        public void CompleteExtinguishing(string feedback)
+        {
+            if (fire != null && fire.Simulation.IsExtinguished) Finish(ScenarioEnding.Extinguished, feedback);
+        }
+
+        private void Finish(ScenarioEnding ending, string feedback = "")
+        {
+            if (!result.Finish(ending, house.Equipment.Score, feedback)) return;
+            consumedFrame = Time.frameCount;
             player.StopMovement();
             smoke.StopCoughing();
         }
@@ -92,7 +116,7 @@ namespace FireSafety.Fire
 
         private void OnGUI()
         {
-            if (!choosing && !caught) return;
+            if (!choosing && !result.IsFinished) return;
             if (titleStyle == null)
             {
                 titleStyle = new GUIStyle(GUI.skin.label) { fontSize = 20, fontStyle = FontStyle.Bold };
@@ -103,22 +127,37 @@ namespace FireSafety.Fire
             GUI.color = new Color(0f, 0f, 0f, 0.55f);
             GUI.DrawTexture(new Rect(0f, 0f, Screen.width, Screen.height), Texture2D.whiteTexture);
             GUI.color = previous;
+            if (result.IsFinished) { DrawResults(); return; }
             Rect panel = Panel;
             GUI.Box(panel, GUIContent.none, GUI.skin.window);
             GUI.Label(new Rect(panel.x + 20, panel.y + 16, panel.width - 40, 30),
-                caught ? (diedFromSmoke ? "Overcome by smoke" : "Caught by the fire")
-                    : choosingLocation ? "Where should class A start?" : "Which fire class would you like?", titleStyle);
+                choosingLocation ? "Where should class A start?" : "Which fire class would you like?", titleStyle);
             GUI.Label(new Rect(panel.x + 20, panel.y + 52, panel.width - 40, 36),
-                caught ? (diedFromSmoke ? "You stayed in the smoke too long. Restart to try again."
-                    : "The fire reached you. Restart to try another scenario.")
-                    : "Each scenario begins with a small, growing fire.", textStyle);
-            if (caught) { DrawButton(0, "Restart demo"); return; }
+                "Each scenario begins with a small, growing fire.", textStyle);
             if (choosingLocation)
             { DrawButton(0, "Table"); DrawButton(1, "Bed"); DrawButton(2, "Back"); return; }
             DrawButton(0, "A - Table or bed");
             DrawButton(1, "B - Paint bottle");
             DrawButton(2, "C - Gas hob");
             DrawButton(3, "F - Deep fryer");
+        }
+
+        private void DrawResults()
+        {
+            Rect panel = ResultsPanel;
+            GUI.Box(panel, GUIContent.none, GUI.skin.window);
+            GUI.Label(new Rect(panel.x + 20f, panel.y + 16f, panel.width - 40f, 32f), result.Title, titleStyle);
+            GUI.Label(new Rect(panel.x + 20f, panel.y + 57f, panel.width - 40f, 132f), result.Feedback, textStyle);
+            GUI.Label(new Rect(panel.x + 20f, panel.y + 200f, panel.width - 40f, 34f),
+                "Final score: " + result.TotalPoints + " points", titleStyle);
+            string breakdown = "Decision points: " + result.DecisionPoints;
+            if (result.Ending == ScenarioEnding.Escaped)
+            {
+                breakdown += "\nEscape bonus: +" + result.EscapePoints;
+                if (result.MissedOpportunityPoints != 0) breakdown += "\nMissed opportunity: " + result.MissedOpportunityPoints;
+            }
+            GUI.Label(new Rect(panel.x + 20f, panel.y + 244f, panel.width - 40f, 76f), breakdown, textStyle);
+            GUI.Box(PlayAgainButton, "Play again", buttonStyle);
         }
 
         private void DrawButton(int index, string label) => GUI.Box(Button(index), label, buttonStyle);

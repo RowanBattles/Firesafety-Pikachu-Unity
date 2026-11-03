@@ -1,4 +1,4 @@
-# Fire Safety — equipment and extinguishing showcase
+# Fire Safety — escape and extinguishing showcase
 
 Unity **6000.6.7f1**, Universal Render Pipeline, New Input System.
 
@@ -20,8 +20,9 @@ Unity **6000.6.7f1**, Universal Render Pipeline, New Input System.
    shows its current size in centimetres. With an item in your inventory and a
    fire smaller than 50 cm, it also offers **Extinguish the fire with <item>**.
    The fire keeps growing while menus and the distance question are open.
-7. Find the red **ABC powder extinguisher** and blue **empty bucket** in the
-   southern part of the living room. Click one, walk to it and choose **Pick up**.
+7. Find the red **ABC powder extinguisher** beside the living room's west wall,
+   or the blue **empty bucket** in the kitchen's northeast corner.
+   Click one, walk to it and choose **Pick up**.
    Carrying another item changes this to **Swap items**: the old item is left at
    the new item's exact location, preserving its water/remaining charge.
 8. To fill the bucket, open the kitchen door, enter and click the **water tap** on the
@@ -34,6 +35,11 @@ Unity **6000.6.7f1**, Universal Render Pipeline, New Input System.
    **wet chemical extinguisher** with the yellow band in the kitchen's north-west
    corner, just inside the door. The character walks to a working position
    3–3.7 m from the fire before the distance question appears (answer 3–4 m).
+11. To escape, open the **front door** in the south wall of the living room.
+    Click the visible path outside it. The character walks through the door;
+    clearing the doorway ends the run and displays the final score.
+12. Extinguishing also ends the run with **Good job! Fire extinguished** and
+    the final score. Use **Play again** on either result to choose a new scenario.
 
 ## Fire scenarios
 
@@ -60,9 +66,45 @@ cannot be closed or opened safely.
 
 Burning space is excluded from walking and interaction routes. Routes are
 rechecked as the fire grows. If fire reaches the character, the demo ends with
-**Caught by the fire** and a **Restart demo** button. Stop and restart Play mode
-to choose another scenario at any time. Escape, the three-minute timer and
-calling for help are not part of this showcase yet.
+**Caught by the fire**, the earned points and a **Play again** button. The
+three-minute timer and calling for help are not part of this showcase yet.
+
+## Escape and final results
+
+The front path is a walkable exit. The player must open the front door and
+actually walk through it: clicking outside never teleports the character or
+ends a run while still indoors. Walls, closed doors and burning space continue
+to block routes. Exterior clicks near the doorstep select a point far enough
+outside for the whole character to clear the door. Other exterior walls and
+windows are not exits. Fire and smoke stay indoors despite the larger walking
+grid, and fog still hides the path behind the closed front door.
+
+Escaping earns **+10 points**, added to existing decision points. A recorded
+missed opportunity to extinguish deducts **2 points**, with an explanation in
+the final result. For example, 0 decision points + 10 escape points − 2 missed
+opportunity points gives **8 points**. The result shows each score component.
+
+An opportunity is recorded only after the player can see a fire below 50 cm,
+with ready, suitable equipment visible and reachable (or already held), a
+reachable working position and a route to the front door. The estimated walk
+plus 4 seconds for pickup/question input must fit before the fire reaches
+50 cm. Active smoke disqualifies the opportunity. Empty equipment, an unseen
+fire, an unsafe agent or a gas fire with its supply still on do not qualify.
+ABC powder and the team's wet chemical extinguisher use their existing class
+and distance rules. A filled bucket can qualify for class A; an empty one does
+not count as ready equipment.
+
+Once recorded, the earlier opportunity remains in the history if the fire
+later grows. Feedback explicitly says **Earlier**; it never asks the player to
+return to a now-unsafe fire. Each run's result and score are finalized once.
+
+Putting out the fire goes straight to **Good job! Fire extinguished**, retaining
+the existing extinguishing/decision points and question feedback. There is no
+extra success award on top of those points. Both successful endings and both
+death endings show a final score and **Play again**. The final screen stops
+movement, fire/smoke simulation and cough audio. Play again reloads the scene
+and resets inventory, contents, score, opportunity history and the fire's
+25 cm / 20-second initial hold, returning to the fire-class selector.
 
 ## Inventory, extinguishing and scoring
 
@@ -73,7 +115,7 @@ used through closed doors. Swapping exchanges the incoming world item and the
 held item at the incoming item's position. Picking up a filled bucket later
 does not empty it, and picking up a used extinguisher does not recharge it.
 
-The two equipment choices follow the supplied `fire extinguishing.docx`:
+The equipment choices follow the supplied `fire extinguishing.docx`:
 
 | Fire | Filled water bucket | ABC powder extinguisher | Wet chemical extinguisher |
 | --- | --- | --- | --- |
@@ -90,8 +132,8 @@ An attempt is allowed only **below 50 cm**, using the current footprint. The
 size is checked again when the distance question is answered. The action is
 hidden once the fire becomes too large; waiting in a question does not preserve
 eligibility. Empty equipment cannot discharge. An extinguished fire loses its
-flames, collider and walking hazard and stays out, allowing movement through
-the cleared space. A successful discharge empties the bucket/extinguisher.
+flames, collider and walking hazard and stays out, then ends the run with the
+final score. A successful discharge empties the bucket/extinguisher.
 
 The reference gives **3–4 m** for the ABC powder model used here. This is not a
 universal distance for all extinguishers: the team's research gives **3–3.7 m**
@@ -106,9 +148,9 @@ for a bucket. The result explains the decision and the score change.
 
 Filling takes **4 seconds** and requires the same empty bucket and continued
 access to the tap. Cancelling, losing access or dying interrupts it without
-creating water. Fire and smoke continue during filling, questions and result
-panels; smoke still kills after prolonged exposure. There is no health bar or
-smoke-warning panel. Restarting the demo resets inventory, contents and score.
+creating water. Fire and smoke continue during filling, questions and feedback
+for unsuccessful attempts; smoke still kills after prolonged exposure. There
+is no health bar or smoke-warning panel. Play again resets the run.
 
 ## Smoke and coughing
 
@@ -124,7 +166,7 @@ Coughing starts before the lethal threshold and becomes more frequent with
 exposure. Coughing audio is the warning: there is no smoke message, exposure
 bar or health bar. Clear air stops new coughs and gradually reduces accumulated
 exposure. The current default is **12 equivalent seconds
-in fully dense smoke** before **Overcome by smoke** and **Restart demo**.
+in fully dense smoke** before **Overcome by smoke** and **Play again**.
 Lighter smoke takes longer to become lethal. The simulator continues while
 inspecting objects; menus do not protect the character from smoke.
 
@@ -166,12 +208,12 @@ the outside walls. Both doors and window sashes visibly rotate when toggled.
 Windows open outward and remain part of the wall; they are not walking exits.
 Each window has a fixed blue sill on the inside: click this visible sill to
 close an opened window even when its sash is outside the visible area.
-The front door is interactive, but the outside path is still decorative.
+The front door leads to the outside escape path.
 
 The camera looks straight down and keeps the character exactly in the centre.
 Destinations snap to a 0.5-metre grid. This prototype contains a living room,
-kitchen and bedroom. Escape mechanics and the timer will follow
-in later steps; the front path is currently decorative.
+kitchen and bedroom, with an escape path outside the front door. The timer
+will follow in a later step.
 
 The **House Prototype** scene object creates the house and character when you
 press **Play**, so they do not appear in the Scene view beforehand. No NavMesh
@@ -190,6 +232,8 @@ for short, soft shadows at 30% strength. There is no instruction or movement fee
 - `ClickToMovePlayer`: handles mouse clicks through the existing New Input System,
   moves the character and displays the destination.
 - `TopDownCamera`: follows the character in `LateUpdate` without lag.
+- `Movement/HouseExit`: doorway/path bounds, fully-outside detection and safe
+  click destinations near the doorstep and path edges.
 - `Interaction/HouseOpenings`: places the door leaves, frames and window sashes.
 - `Interaction/OpenableObject`: owns each object's state, hinge rotation,
   fixed interaction frame and open/closed navigation footprints.
@@ -204,7 +248,8 @@ for short, soft shadows at 30% strength. There is no instruction or movement fee
 - `Equipment/ExtinguishingRules`: class/size/contents checks, which fire classes
   each item suits, each extinguisher's correct distance and working range, distance assessment,
   one-shot scoring and consumption. These rules use the supplied reference.
-- `Equipment/EquipmentSystem`: pickup swaps, filling, quiz/result UI and score.
+- `Equipment/EquipmentSystem`: pickup swaps, filling, quiz/feedback UI, decision
+  score and world reachability checks for a possible extinguishing opportunity.
 - `Equipment/EquipmentWorld`, `PickupEquipment`, `WaterTap`: clickable equipment,
   carried visuals and the kitchen sink, using the shared walk-first interaction.
 - `Fire/FireSimulation`: engine-independent exponential growth and room/door
@@ -212,7 +257,11 @@ for short, soft shadows at 30% strength. There is no instruction or movement fee
 - `Fire/FireHazard`: draws orange/yellow flames, supplies hazard footprints and
   updates the walking grid as the fire expands.
 - `Fire/FireShowcase`: handles class selection, starts the matching scenario,
-  advances fire and smoke and shows the appropriate fire/smoke restart screen.
+  advances fire and smoke, detects endings and displays final points / Play again.
+- `Gameplay/ScenarioResult`: immutable final score, escape bonus, missed-opportunity
+  history and feedback for escaping, extinguishing or dying.
+- `Gameplay/ExtinguishingOpportunity`: checks that estimated travel and interaction
+  time fit before the strict 50 cm limit, including the initial hold.
 - `Smoke/SmokeSimulation`: fast, fixed-step smoke spread through open passages.
 - `Smoke/SmokeExposure`: accumulated inhalation dose, cough warning and death.
 - `Smoke/SmokeHazard`: smoke particles, density clipping, exposure and cough audio.
@@ -242,8 +291,30 @@ doors, corners, the visible door surface and re-hiding previously seen cells.
 `FireSimulation.cs` and `SmokeSimulation.cs`. It covers swaps and preserved
 contents, timed/cancelled filling, all class/tool combinations, distance scoring,
 the strict 50 cm limit, growth during the question and permanent extinguishing.
+`Tests/HouseExitTests.cs` runs with `HouseExit.cs`, `GridPathfinder.cs`,
+`VisibilityMap.cs`, `FireSimulation.cs` and `SmokeSimulation.cs`. It checks
+open/closed/blocked escape routes, doorstep clicks, full-body clearance,
+visibility and keeping hazards off the exterior path.
+`Tests/ScenarioResultTests.cs` runs with `ScenarioResult.cs`,
+`ExtinguishingOpportunity.cs`, `InventoryState.cs`, `ExtinguishingRules.cs` and
+`FireSimulation.cs`. It checks final score breakdowns, one-time awards,
+opportunity timing/class/contents rules, earlier-opportunity history and replay.
 Also check the following in the Unity Editor:
 
+- With the front door closed, click outside: no escape should occur. Open it,
+  click the visible path and verify the character walks through before the
+  final **You escaped!** screen appears. Check doorstep and path-edge clicks too.
+- Try routes from the kitchen and bedroom with their doors open and closed,
+  and with fire blocking the exit. There must be no wall or hazard bypass.
+- Escape from an unseen or unsafe fire: verify +10 escape points without a
+  missed-opportunity deduction. See a small fire with ready reachable equipment
+  and a clear exit first, then escape: verify the −2 deduction and its explanation.
+- Extinguish with the bucket, ABC powder and wet chemical: verify the correct
+  feedback and final accumulated points, with no duplicate bonus and no need
+  to escape afterward. Simulation and coughing stop on final results.
+- Use **Play again** after escape, extinguishing, fire death and smoke death.
+  Verify the class selector returns, items/doors reset, score returns to zero
+  and the next fire starts at 25 cm with its full 20-second hold.
 - Pick up each item and swap back: exactly one item is carried and the other
   appears at the newly picked item's location. Repeat with a filled bucket and
   a used extinguisher to check that contents are preserved.
@@ -260,8 +331,8 @@ Also check the following in the Unity Editor:
 - Use a filled bucket on A, B, C and F, and ABC powder on C/F. Check the class
   restrictions and score feedback; water must never put out burning oil.
 - Put out a small A fire with the bucket. Verify it is empty afterward, the
-  flames disappear, the old hazard no longer blocks navigation and no smoke
-  starts from that out fire. The smoke-exposure mechanics must still work in
+  flames disappear and the final result appears. No smoke may start from the
+  out fire. The smoke-exposure mechanics must still work in
   a separate, unchecked growing-fire run without showing a health bar.
 - Start each class and both A locations: verify the right object burns and
   movement is blocked until selection is finished.
@@ -272,7 +343,7 @@ Also check the following in the Unity Editor:
   flames appearing through the solid wall or outside the house.
 - Attempt to close an engulfed doorway: the action must be refused.
 - Click a path crossing fire: the character must find a safe route or stay put.
-- Let fire reach the character: verify **Restart demo** returns to class selection
+- Let fire reach the character: verify **Play again** returns to class selection
   and the next scenario starts small again.
 - Start a kitchen fire with the kitchen door closed: the room, its fire and its
   smoke should remain dark gray from the living room; coughing must not start there.
@@ -286,7 +357,7 @@ Also check the following in the Unity Editor:
   without overlapping itself and no smoke message or health bar appears. Move
   to clear air to stop further coughing.
 - Remain in smoke: verify **Overcome by smoke**, stopped audio and a fresh,
-  unexposed character after **Restart demo**.
+  unexposed character after **Play again**.
 - Walk from the living room to the kitchen and bedroom, and around the coffee table.
 - With both internal doors closed, verify the character cannot enter either room.
 - From far away, click a living-room window: the character should walk to its

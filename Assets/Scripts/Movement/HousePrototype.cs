@@ -10,10 +10,10 @@ namespace FireSafety.Movement
     // Attached to SampleScene. Geometry is generated only in Play mode; no baking or extra package is needed.
     public sealed class HousePrototype : MonoBehaviour
     {
-        private const int Width = 40, Height = 32;
+        private const int Width = 40, Height = 40;
         private const float CellSize = 0.5f, PlayerScale = 1.25f;
         private const float PlayerRadius = 0.3f * PlayerScale;
-        private static readonly Vector3 Origin = new Vector3(-10f, 0f, -8f);
+        private static readonly Vector3 Origin = new Vector3(-10f, 0f, HouseExit.PathEndZ);
         private readonly List<Bounds> obstacles = new List<Bounds>();
         private readonly HashSet<Collider> floors = new HashSet<Collider>();
         private readonly List<Material> materials = new List<Material>();
@@ -25,6 +25,7 @@ namespace FireSafety.Movement
         private FogOfWar visibility;
         private bool[] navigationMask;
         private ClickToMovePlayer player;
+        private Collider frontPath;
         public GridPathfinder Navigation { get; private set; }
         public int GridWidth => Width;
         public int GridHeight => Height;
@@ -35,6 +36,7 @@ namespace FireSafety.Movement
         public bool ScenarioBlocked => showcase != null && showcase.BlocksGameplay;
         public bool GameplayBlocked => ScenarioBlocked || Equipment != null && Equipment.BlocksGameplay;
         public int OcclusionVersion { get; private set; }
+        public OpenableObject FrontDoor { get; private set; }
 
         private void Awake()
         {
@@ -47,7 +49,7 @@ namespace FireSafety.Movement
             Floor("Living Room", -5f, 0f, 10f, 16f, wood);
             Floor("Kitchen", 5f, -4f, 10f, 8f, cream);
             Floor("Bedroom", 5f, 4f, 10f, 8f, Material(new Color(0.65f, 0.76f, 0.73f)));
-            Box("Front Path", new Vector3(-5f, -0.16f, -10f), new Vector3(3f, 0.15f, 4f), cream);
+            frontPath = Floor("Front Path", -5f, -10f, 3f, 4f, cream).GetComponent<Collider>();
             // Outer walls; the south wall leaves a visible front-door opening.
             Wall("North Wall", 0, 8, 20.3f, 0.3f, wall);
             Wall("West Wall", -10, 0, 0.3f, 16, wall);
@@ -74,7 +76,10 @@ namespace FireSafety.Movement
             HouseOpenings.Build(transform, Material(new Color(0.76f, 0.48f, 0.23f)), white,
                 Material(new Color(0.28f, 0.72f, 0.88f)), dark, openings);
             foreach (OpenableObject opening in openings)
+            {
                 if (opening.IsDoor) opening.StateChanged += OnDoorChanged;
+                if (opening.DisplayName == "Front door") FrontDoor = opening;
+            }
             BuildNavigation();
 
             var character = new GameObject("Player");
@@ -119,6 +124,11 @@ namespace FireSafety.Movement
 
         public bool IsFloor(Collider surface) => floors.Contains(surface);
         public bool IsVisiblePoint(Vector3 point) => visibility == null || visibility.CanSee(point);
+        public bool HasEscaped(Vector3 point) => HouseExit.HasEscaped(point.x, point.z, PlayerRadius);
+        public void CompleteExtinguishing(string feedback) => showcase.CompleteExtinguishing(feedback);
+        public Vector3 FloorDestination(Collider surface, Vector3 clicked)
+            => surface == frontPath ? new Vector3(HouseExit.TargetX(clicked.x, PlayerRadius, CellSize), 0f,
+                HouseExit.TargetZ(clicked.z, PlayerRadius, CellSize)) : clicked;
 
         public void CopySightObstacles(List<SightObstacle> result)
         {
@@ -151,8 +161,7 @@ namespace FireSafety.Movement
             for (int cell = 0; cell < walkable.Length; cell++)
             {
                 Vector3 point = CellToWorld(cell);
-                walkable[cell] = point.x > -10 + PlayerRadius && point.x < 10 - PlayerRadius
-                    && point.z > -8 + PlayerRadius && point.z < 8 - PlayerRadius;
+                walkable[cell] = HouseExit.IsWalkableArea(point.x, point.z, PlayerRadius);
                 foreach (Bounds obstacle in obstacles)
                 {
                     if (OverlapsPlayer(obstacle, point))
@@ -197,7 +206,9 @@ namespace FireSafety.Movement
             for (int cell = 0; cell < passage.Length; cell++)
             {
                 Vector3 point = CellToWorld(cell);
-                passage[cell] = true;
+                // Fire and smoke remain indoors even though navigation now includes the front path.
+                passage[cell] = HouseExit.IsInsideHouse(point.x, point.z);
+                if (!passage[cell]) continue;
                 // Test whole cell footprints, not just centres: thin walls must not leak fire.
                 foreach (Bounds wall in walls)
                     if (OverlapsCell(wall, point)) { passage[cell] = false; break; }
@@ -230,10 +241,11 @@ namespace FireSafety.Movement
             if (player != null) player.StopMovement();
         }
 
-        private void Floor(string name, float x, float z, float width, float depth, Material material)
+        private GameObject Floor(string name, float x, float z, float width, float depth, Material material)
         {
             GameObject floor = Box(name, new Vector3(x, -0.1f, z), new Vector3(width, 0.2f, depth), material);
             floors.Add(floor.GetComponent<Collider>());
+            return floor;
         }
 
         private void Wall(string name, float x, float z, float width, float depth, Material material)

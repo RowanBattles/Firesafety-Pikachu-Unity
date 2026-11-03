@@ -1,6 +1,9 @@
 using FireSafety.Fire;
 using FireSafety.Interaction;
 using FireSafety.Movement;
+using FireSafety.Gameplay;
+using FireSafety.Smoke;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -17,6 +20,8 @@ namespace FireSafety.Equipment
         private ClickToMovePlayer player;
         private ObjectInteraction interaction;
         private PickupEquipment held;
+        private readonly List<PickupEquipment> availableItems = new List<PickupEquipment>();
+        private readonly List<int> exitPath = new List<int>(), pickupPath = new List<int>(), workingPath = new List<int>();
         private WaterTap fillingTap;
         private BucketFilling filling;
         private FireHazard targetFire;
@@ -34,6 +39,49 @@ namespace FireSafety.Equipment
 
         public void Initialize(HousePrototype layout, ClickToMovePlayer character, ObjectInteraction controller)
         { house = layout; player = character; interaction = controller; }
+
+        public void Register(PickupEquipment item) => availableItems.Add(item);
+
+        // Count an opportunity only after seeing the fire, with reachable ready equipment,
+        // a usable firing position, an escape route and enough time before the fire grows.
+        public bool HasSafeExtinguishingOpportunity(FireHazard fire, SmokeHazard smoke)
+        {
+            Vector3 position = player.transform.position;
+            if (!HouseExit.IsInsideHouse(position.x, position.z) || smoke.Active
+                || house.IsFireDanger(position) || !house.IsVisiblePoint(fire.SourcePosition)
+                || fire.Simulation.IsExtinguished || fire.Simulation.SizeCm >= ExtinguishingRules.MaximumSizeCm)
+                return false;
+            GridPathfinder navigation = house.Navigation;
+            int start = house.WorldToCell(position);
+            if (house.FrontDoor == null || !navigation.TryFindPathToAny(start,
+                cell => interaction.CanInteractFrom(house.FrontDoor, house.CellToWorld(cell)), exitPath)) return false;
+            foreach (PickupEquipment view in availableItems)
+            {
+                EquipmentItem item = view.Item;
+                if (ExtinguishingRules.Check(fire.Simulation, item) != ExtinguishingBlock.None) continue;
+                int toolCell = start, pickupSteps = 0;
+                if (view != held)
+                {
+                    if (!house.IsVisiblePoint(view.transform.position) || !navigation.TryFindPathToAny(start,
+                        cell => interaction.CanInteractFrom(view, house.CellToWorld(cell)), pickupPath)) continue;
+                    toolCell = pickupPath[pickupPath.Count - 1];
+                    pickupSteps = pickupPath.Count;
+                }
+                float minimum = ExtinguishingRules.IsExtinguisher(item.Kind)
+                    ? ExtinguishingRules.MinimumWorkingDistance(item.Kind) : 0f;
+                float maximum = ExtinguishingRules.IsExtinguisher(item.Kind)
+                    ? ExtinguishingRules.MaximumWorkingDistance(item.Kind) : 1.4f;
+                if (!navigation.TryFindPathToAny(toolCell, cell =>
+                {
+                    Vector3 spot = house.CellToWorld(cell);
+                    return interaction.CanReachPoint(fire, spot, fire.InteractionPointForEquipment(spot, item), minimum, maximum);
+                }, workingPath)) continue;
+                // Reserve time for pickup confirmation and answering the distance question.
+                double secondsRequired = (pickupSteps + workingPath.Count) * house.GridCellSize / player.MoveSpeed + 4.0;
+                if (ExtinguishingOpportunity.HasTimeToUse(fire.Simulation, item, secondsRequired)) return true;
+            }
+            return false;
+        }
 
         public void PickUp(PickupEquipment incoming)
         {
@@ -122,10 +170,16 @@ namespace FireSafety.Equipment
             ExtinguishingOutcome outcome = attempt.Resolve(choice);
             Score += outcome.Points;
             if (held != null) held.RefreshContents();
-            if (outcome.Extinguished) targetFire.RefreshAfterExtinguishing();
+            if (outcome.Extinguished)
+            {
+                targetFire.RefreshAfterExtinguishing();
+                house.CompleteExtinguishing(outcome.Message);
+                Close();
+                return;
+            }
             string points = outcome.Points > 0 ? "+" + outcome.Points + " points"
                 : outcome.Points < 0 ? outcome.Points + " points" : "No points scored";
-            ShowResult(outcome.Extinguished ? "Fire extinguished" : "Extinguishing stopped", outcome.Message + "\n\n" + points);
+            ShowResult("Extinguishing stopped", outcome.Message + "\n\n" + points);
         }
 
         private void ShowResult(string title, string text)
@@ -133,7 +187,7 @@ namespace FireSafety.Equipment
 
         private void Close()
         {
-            if (panel == PanelState.None) return;
+            if (panel == PanelState.None && filling == null && attempt == null) return;
             filling?.Cancel();
             filling = null; fillingTap = null; attempt = null; targetFire = null;
             panel = PanelState.None;

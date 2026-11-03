@@ -18,6 +18,7 @@ namespace FireSafety.Movement
         private ObjectInteraction interaction;
         private GridPathfinder plannedNavigation;
         public bool IsMoving => waypoint < waypoints.Count;
+        public float MoveSpeed => moveSpeed;
 
         public void Initialize(HousePrototype layout, Camera camera, Transform destinationMarker)
         {
@@ -103,7 +104,7 @@ namespace FireSafety.Movement
                 return;
             }
             int start = house.WorldToCell(transform.position);
-            int goal = house.WorldToCell(hit.point);
+            int goal = house.WorldToCell(house.FloorDestination(hit.collider, hit.point));
             if (!house.Navigation.TryFindPath(start, goal, cells))
             {
                 // A blocked click leaves the existing valid route intact.

@@ -11,6 +11,7 @@ namespace FireSafety.Fire
     public sealed class FireHazard : WorldInteractable
     {
         public FireSimulation Simulation { get; private set; }
+        public Vector3 SourcePosition => site.Position;
         public override string DisplayName => "Class " + Simulation.Type + " fire";
         public override string StatusText => "Current fire size: " + Simulation.SizeCm.ToString("0") + " cm";
         public override string ActionLabel => "Continue";
@@ -71,9 +72,14 @@ namespace FireSafety.Fire
         }
 
         public override Vector3 InteractionPoint(Vector3 from)
+            => InteractionPointForEquipment(from, house.Equipment.Inventory.Held);
+
+        public Vector3 InteractionPointForEquipment(Vector3 from, EquipmentItem item)
         {
             // Keep the working distance stable as this small source grows during the question.
-            if (UsesExtinguisherRange) return new Vector3(site.Position.x, from.y, site.Position.z);
+            if (item != null && ExtinguishingRules.IsExtinguisher(item.Kind) && item.CanDischarge
+                && Simulation.SizeCm < ExtinguishingRules.MaximumSizeCm)
+                return new Vector3(site.Position.x, from.y, site.Position.z);
             Vector3 closest = from;
             float best = float.PositiveInfinity;
             foreach (Bounds tile in footprint)

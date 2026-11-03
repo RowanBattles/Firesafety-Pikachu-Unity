@@ -10,7 +10,7 @@ namespace FireSafety.Fire
     public sealed class FireSimulation
     {
         private const double StepSeconds = 0.05;
-        private const double InitialHoldSeconds = 20.0;
+        public const double InitialHoldSeconds = 20.0;
         private readonly int width, height;
         private readonly double cellSize;
         private readonly bool[] burning;

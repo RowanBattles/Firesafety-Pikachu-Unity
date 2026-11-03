@@ -21,6 +21,7 @@ namespace FireSafety.Equipment
         public void Initialize(EquipmentSystem owner, EquipmentKind kind, Collider collider, GameObject waterSurface)
         {
             equipment = owner; Item = new EquipmentItem(kind); hitbox = collider; water = waterSurface;
+            equipment.Register(this);
             RefreshContents();
         }
 

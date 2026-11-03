@@ -153,10 +153,16 @@ namespace FireSafety.Interaction
         public bool CanInteractFrom(WorldInteractable target, Vector3 position)
         {
             if (target == null) return false;
-            Vector3 point = target.InteractionPoint(position);
+            return CanReachPoint(target, position, target.InteractionPoint(position), target.MinimumUseRange, target.UseRange);
+        }
+
+        public bool CanReachPoint(WorldInteractable target, Vector3 position, Vector3 point,
+            float minimumRange, float maximumRange)
+        {
+            if (target == null) return false;
             float distanceSquared = (point - position).sqrMagnitude;
-            if (distanceSquared > target.UseRange * target.UseRange
-                || distanceSquared < target.MinimumUseRange * target.MinimumUseRange
+            if (distanceSquared > maximumRange * maximumRange
+                || distanceSquared < minimumRange * minimumRange
                 || house.IsFireDanger(position)) return false;
             // Check at body height so low walls cannot be bypassed by looking over their tops.
             Vector3 start = new Vector3(position.x, 0.6f, position.z);
