@@ -8,6 +8,7 @@ namespace FireSafety.Equipment
     {
         public const double MaximumSizeCm = 50;
         public const int CorrectPoints = 10, IncorrectPoints = -5;
+        public static readonly string[] DistanceAnswers = { "Less than 1 metre", "1–2 metres", "3–4 metres", "More than 6 metres" };
 
         public static bool IsExtinguisher(EquipmentKind kind) => kind != EquipmentKind.Bucket;
 
@@ -91,7 +92,7 @@ namespace FireSafety.Equipment
         { this.fire = fire; this.item = item; }
 
         // Extinguishers ask a distance question; see ExtinguishingRules.CorrectDistanceChoice.
-        public ExtinguishingOutcome Resolve(int distanceChoice = -1)
+        public ExtinguishingOutcome Resolve(int distanceChoice = -1, bool playerInitiated = true)
         {
             if (IsResolved) return new ExtinguishingOutcome(false, 0, "This attempt has already been resolved.");
             ExtinguishingBlock block = ExtinguishingRules.Check(fire, item);
@@ -99,6 +100,7 @@ namespace FireSafety.Equipment
             {
                 IsResolved = true;
                 int points = block == ExtinguishingBlock.WrongAgent || block == ExtinguishingBlock.GasStillOn
+                    || block == ExtinguishingBlock.TooLarge && playerInitiated
                     ? ExtinguishingRules.IncorrectPoints : 0;
                 return new ExtinguishingOutcome(false, points,
                     ExtinguishingRules.Explanation(block, item, fire == null ? FireType.A : fire.Type));

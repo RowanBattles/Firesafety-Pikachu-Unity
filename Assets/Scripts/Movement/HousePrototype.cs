@@ -53,6 +53,7 @@ namespace FireSafety.Movement
         private void Awake()
         {
             Setup = new ScenarioSetup(scenarioMode, new System.Random(System.Guid.NewGuid().GetHashCode()));
+            gameObject.AddComponent<OutdoorEnvironment>().Initialize(transform);
             Material wall = Material(new Color(0.25f, 0.34f, 0.36f));
             Material wood = Material(new Color(0.64f, 0.43f, 0.27f));
             Material cream = Material(new Color(0.87f, 0.82f, 0.69f));
@@ -116,11 +117,9 @@ namespace FireSafety.Movement
                 view = cameraObject.GetComponent<Camera>();
             }
             view.gameObject.AddComponent<TopDownCamera>().Follow(character.transform);
-            var marker = Primitive("Destination", PrimitiveType.Cylinder, transform,
-                Vector3.zero, new Vector3(0.45f, 0.015f, 0.45f), Material(new Color(1f, 0.71f, 0.16f)));
-            Destroy(marker.GetComponent<Collider>());
+            Transform marker = WorldRing.Create(transform, "Destination", new Color(1f, 0.76f, 0.15f));
             player = character.AddComponent<ClickToMovePlayer>();
-            player.Initialize(this, view, marker.transform);
+            player.Initialize(this, view, marker);
             var interaction = gameObject.AddComponent<ObjectInteraction>();
             interaction.Initialize(view, player, this, CanPlaceDoor);
             player.SetInteraction(interaction);

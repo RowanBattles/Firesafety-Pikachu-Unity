@@ -11,7 +11,9 @@ namespace FireSafety.Interaction
     {
         private string displayName;
         public override string DisplayName => displayName;
-        public override string StatusText => IsOpen ? "Status: Open" : "Status: Closed";
+        public override string StatusText => "";
+        public override Vector3 SelectionPosition => new Vector3(InteractionBounds.center.x,
+            InteractionBounds.max.y + 0.12f, InteractionBounds.center.z);
         public bool IsOpen { get; private set; }
         public bool IsDoor { get; private set; }
         public HouseOpening Id { get; private set; }

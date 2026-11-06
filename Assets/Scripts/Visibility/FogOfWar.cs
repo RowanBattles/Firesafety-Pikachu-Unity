@@ -70,7 +70,13 @@ namespace FireSafety.Visibility
             lastPosition = player.position;
             map.Calculate(lastPosition.x, lastPosition.z, obstacles);
             for (int cell = 0; cell < pixels.Length; cell++)
-                pixels[cell] = new Color32(30, 32, 36, map.IsVisible(cell) ? (byte)0 : (byte)255);
+            {
+                float x = Origin + (cell % Resolution + 0.5f) * Extent / Resolution;
+                float z = Origin + (cell / Resolution + 0.5f) * Extent / Resolution;
+                // The garden is scenery. Interior visibility and click access still use wall/door sight lines.
+                bool visible = !HouseExit.IsInsideHouse(x, z) || map.IsVisible(cell);
+                pixels[cell] = new Color32(30, 32, 36, visible ? (byte)0 : (byte)255);
+            }
             texture.SetPixels32(pixels); texture.Apply(false);
             renderedVersion = cachedVersion;
         }

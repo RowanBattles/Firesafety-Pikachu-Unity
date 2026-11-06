@@ -7,14 +7,15 @@ namespace FireSafety.Gameplay
     // A result is finalized once; UI redraws and repeat clicks cannot change its score.
     public sealed class ScenarioResult
     {
-        public const int EscapeReward = 10, MissedOpportunityDeduction = 2;
+        public const int EscapeReward = 10, MissedOpportunityDeduction = 2, DeathDeduction = 10;
         public ScenarioEnding Ending { get; private set; }
         public bool IsFinished => Ending != ScenarioEnding.None;
         public bool HadSafeExtinguishingOpportunity { get; private set; }
         public int DecisionPoints { get; private set; }
         public int EscapePoints { get; private set; }
         public int MissedOpportunityPoints { get; private set; }
-        public int TotalPoints => DecisionPoints + EscapePoints + MissedOpportunityPoints;
+        public int DeathPoints { get; private set; }
+        public int TotalPoints => DecisionPoints + EscapePoints + MissedOpportunityPoints + DeathPoints;
         public string ExtinguishingFeedback { get; private set; }
 
         public void ObserveExtinguishingOpportunity(bool safelyAvailable)
@@ -34,6 +35,8 @@ namespace FireSafety.Gameplay
                 EscapePoints = EscapeReward;
                 if (HadSafeExtinguishingOpportunity) MissedOpportunityPoints = -MissedOpportunityDeduction;
             }
+            if (ending == ScenarioEnding.FireDeath || ending == ScenarioEnding.SmokeDeath)
+                DeathPoints = -DeathDeduction;
             return true;
         }
 

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using FireSafety.Movement;
+using FireSafety.Rendering;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -16,6 +17,8 @@ namespace FireSafety.Interaction
         private Func<Bounds, bool> canPlaceDoor;
         private WorldInteractable selected;
         private WorldInteractable approaching;
+        private WorldInteractable highlighted;
+        private Transform selectionRing;
         private GridPathfinder approachNavigation;
         private readonly List<int> approachPath = new List<int>();
         private int consumedFrame = -1;
@@ -26,8 +29,11 @@ namespace FireSafety.Interaction
 
         public bool BlocksMovementInput => selected != null || consumedFrame == Time.frameCount;
         private bool HasSecondaryAction => selected != null && !string.IsNullOrEmpty(selected.SecondaryActionLabel);
-        private float PopupHeight => HasSecondaryAction ? 280f : 210f;
-        private float ActionY => HasSecondaryAction ? 166f : 106f;
+        private bool HasStatus => selected != null && !string.IsNullOrEmpty(selected.StatusText);
+        private bool HasPrompt => selected != null && !string.IsNullOrEmpty(selected.Prompt);
+        private float ContentBottom => 48f + (HasStatus ? 28f : 0f) + (HasPrompt ? 36f : 0f);
+        private float PopupHeight => ActionY + 104f;
+        private float ActionY => ContentBottom + (HasSecondaryAction ? 60f : 0f) + 8f;
         private Rect PopupRect => new Rect((Screen.width - PopupWidth) * 0.5f,
             (Screen.height - PopupHeight) * 0.5f, PopupWidth, PopupHeight);
         private float PopupWidth => Mathf.Min(360f, Screen.width - 24f);
@@ -36,7 +42,7 @@ namespace FireSafety.Interaction
         private Rect ToggleButton => selected != null && !selected.ShowCancel
             ? new Rect(PopupRect.x + 18f, PopupRect.y + ActionY, PopupWidth - 36f, 38f)
             : new Rect(PopupRect.center.x + 6f, PopupRect.y + ActionY, (PopupWidth - 48f) * 0.5f, 38f);
-        private Rect SecondaryButton => new Rect(PopupRect.x + 18f, PopupRect.y + 106f, PopupWidth - 36f, 50f);
+        private Rect SecondaryButton => new Rect(PopupRect.x + 18f, PopupRect.y + ContentBottom, PopupWidth - 36f, 50f);
 
         public void Initialize(Camera camera, ClickToMovePlayer character, HousePrototype layout,
             Func<Bounds, bool> doorValidator)
@@ -45,6 +51,14 @@ namespace FireSafety.Interaction
             player = character;
             house = layout;
             canPlaceDoor = doorValidator;
+            selectionRing = WorldRing.Create(house.transform, "Selected object", new Color(1f, 0.76f, 0.15f));
+        }
+
+        private void LateUpdate()
+        {
+            if (selectionRing == null) return;
+            selectionRing.gameObject.SetActive(highlighted != null);
+            if (highlighted != null) selectionRing.position = highlighted.SelectionPosition;
         }
 
         private void Update()
@@ -101,7 +115,14 @@ namespace FireSafety.Interaction
                 else if (ToggleButton.Contains(guiPointer))
                 {
                     if (!CanInteractFrom(selected, player.transform.position)) Dismiss();
-                    else if (selected.TryInteract(canPlaceDoor, out message)) Dismiss();
+                    else
+                    {
+                        WorldInteractable clickedObject = selected;
+                        string choice = clickedObject.ActionLabel;
+                        bool success = clickedObject.TryInteract(canPlaceDoor, out message);
+                        if (house.Tutorial != null) house.Tutorial.InteractionDecision(clickedObject, choice, success, message);
+                        if (success) Dismiss();
+                    }
                 }
                 else if (!PopupRect.Contains(guiPointer)) Dismiss();
                 return;
@@ -120,6 +141,7 @@ namespace FireSafety.Interaction
             }
             if (target == null)
             {
+                highlighted = null;
                 if (approaching != null)
                 {
                     approaching = null;
@@ -134,6 +156,7 @@ namespace FireSafety.Interaction
 
         private void BeginApproach(WorldInteractable target)
         {
+            highlighted = target;
             approaching = null;
             selected = null;
             message = "";
@@ -147,7 +170,7 @@ namespace FireSafety.Interaction
                 cell => CanInteractFrom(target, house.CellToWorld(cell)), approachPath)) return;
             approaching = target;
             approachNavigation = house.Navigation;
-            player.FollowPath(approachPath);
+            player.FollowPath(approachPath, false);
         }
 
         public bool CanInteractFrom(WorldInteractable target, Vector3 position)
@@ -193,10 +216,8 @@ namespace FireSafety.Interaction
             Rect popup = PopupRect;
             GUI.Box(popup, GUIContent.none, GUI.skin.window);
             GUI.Label(new Rect(popup.x + 18f, popup.y + 14f, popup.width - 36f, 28f), selected.DisplayName, titleStyle);
-            GUI.Label(new Rect(popup.x + 18f, popup.y + 46f, popup.width - 36f, 24f),
-                selected.StatusText, textStyle);
-            GUI.Label(new Rect(popup.x + 18f, popup.y + 74f, popup.width - 36f, 30f),
-                selected.Prompt, textStyle);
+            if (HasStatus) GUI.Label(new Rect(popup.x + 18f, popup.y + 48f, popup.width - 36f, 24f), selected.StatusText, textStyle);
+            if (HasPrompt) GUI.Label(new Rect(popup.x + 18f, popup.y + 48f + (HasStatus ? 28f : 0f), popup.width - 36f, 32f), selected.Prompt, textStyle);
             if (HasSecondaryAction) DrawButton(SecondaryButton, selected.SecondaryActionLabel);
             if (selected.ShowCancel) DrawButton(CancelButton, "Do nothing");
             DrawButton(ToggleButton, selected.ActionLabel);
@@ -221,6 +242,7 @@ namespace FireSafety.Interaction
         {
             selected = null;
             approaching = null;
+            highlighted = null;
             message = "";
             consumedFrame = Time.frameCount;
         }

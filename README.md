@@ -12,12 +12,28 @@ returns to this page, including during lessons or after a result.
 | --- | --- |
 | MenuPage | Startup page with the three mode choices and original menu artwork. |
 | GameScene | Starts one random A/B/C/F fire automatically; class A randomly uses the table or bed. Each door/window has a random open/closed state, except the bottom front escape door, which always starts closed. Play again rolls a fresh scenario. |
-| TutorialScene | Guided, hands-on lessons with controlled fires, a smoke drill, questions, scoring and a final real-time escape. |
+| TutorialScene | Guided, hands-on lessons with controlled fires, a smoke drill, explained decisions and a final real-time escape. Scores stay hidden throughout. |
 | DevScene | The former SampleScene, preserving its asset GUID. Choose the fire class/location manually. The kitchen door and west living-room window start open as before. |
 
 All three house scenes use the same `HousePrototype` geometry, equipment and
 player spawn. Only scenario state changes. Open any scene directly in the Editor
 to work on that mode; the procedural house appears when Play starts.
+
+All house modes include a surrounding meadow, grass tufts, trees and garden
+stepping stones. Scenery uses batched meshes without colliders; the house,
+player spawn and exit navigation remain the same. The garden is visible around
+the house; hidden interiors still use the existing wall/door visibility rules.
+
+Clicking an object places a yellow ring on the object itself, while the player
+walks to a safe, reachable interaction position. Floor clicks have their own
+destination ring. Door/window popups show the appropriate Open/Close action
+without a redundant status line.
+
+**Game** shows a fire's current size, without revealing its class or pre-warning
+that it is too large. Attempt feedback reports whether the fire was extinguished;
+points appear only on the final result. **Dev** retains class/size-limit hints,
+explanations and its running score. **Tutorial** shows correct/incorrect choices
+and explanations, with no visible points even on its final result.
 
 ### Tutorial
 
@@ -28,20 +44,26 @@ and retrieve the same water. Follow the cyan ring and the current objective.
 
 Put out a small class A table fire with water, a class B paint fire with ABC
 powder, and a class F fryer fire with wet chemical. The extinguisher distance
-questions use the existing scoring and working-distance rules. A gas-safety
+questions use the existing working-distance rules. A gas-safety
 question teaches why a still-fed class C fire requires evacuation. Another
-question covers staying low and leaving smoke. Wrong safety answers deduct
-5 points; correct answers award 10 and move on.
+question covers staying low and leaving smoke. Each choice opens feedback showing
+your answer, the correct answer and the incorrect alternatives. Incorrect safety
+answers can be retried after reviewing the explanation. No points are displayed.
+
+Picking wet chemical during the ABC swap exercise explains that you swapped the
+wrong items, reassures you and advances to retrieving the full bucket. Its water
+is preserved at the chosen extinguisher's former position, so neither choice
+blocks the walkthrough.
 
 The controlled smoke patch uses the supplied coughing audio. Enter it until the
 warning, then leave for clear air to progress. There is no health bar; prolonged
 exposure still kills. The final drill starts a growing gas fire: open the front
-door and physically walk outside to finish and see your total points.
+door and physically walk outside to finish the tutorial.
 
 Practice A/B/F fires stay at 25 cm. Instructions pause hazards and movement;
 practice is completed by world actions, rather than a Next button. Fire contact
 and prolonged smoke exposure remain fatal. **Retry lesson** restores that
-lesson's starting equipment and score checkpoint. Returning from Menu starts a
+lesson's starting state and equipment. Returning from Menu starts a
 new tutorial. Earlier practice fires do not create a missed-opportunity penalty
 for the final gas-fire escape.
 
@@ -85,7 +107,7 @@ must be verified on a licensed local Unity installation.
    **C** or **F**. Class A also lets you choose **Table** or **Bed**.
 3. Left-click an open spot on the floor. The character walks there, going around
    furniture and through doorways to reach other rooms.
-4. Click again while walking to change the destination. The yellow dot marks
+4. Click again while walking to change the destination. The yellow ring marks
    the destination. Clicking a wall, furniture or an unreachable spot is rejected;
    the character continues along any existing valid route.
 5. Click an orange door or a blue window. The character walks to a reachable
@@ -96,8 +118,10 @@ must be verified on a licensed local Unity installation.
    Game randomizes openings, always keeping the front escape door closed.
    Tutorial starts with all openings closed for its exercises.
 6. Click the flames to walk to a safe, reachable spot nearby. The fire popup
-   shows its current size in centimetres. With an item in your inventory and a
-   fire smaller than 50 cm, it also offers **Extinguish the fire with <item>**.
+   shows its current size in centimetres. With an item in your inventory, it also
+   offers **Extinguish the fire with <item>**, including for oversized fires.
+   Trying a fire of 50 cm or more shows **Fire too big** and deducts 5 points,
+   without discharging the item. Game reveals the score only at the end.
    In Game/Dev and the final tutorial escape, fire keeps growing while menus
    and the distance question are open.
 7. Find the red **ABC powder extinguisher** beside the living room's west wall,
@@ -147,7 +171,7 @@ cannot be closed or opened safely.
 
 Burning space is excluded from walking and interaction routes. Routes are
 rechecked as the fire grows. If fire reaches the character, the demo ends with
-**Caught by the fire**, the earned points and a **Play again** button. The
+**Caught by the fire**, a final score including a 10-point death deduction and a **Play again** button. The
 three-minute timer and calling for help are not part of this showcase yet.
 
 ## Ventilation
@@ -193,7 +217,8 @@ ends a run while still indoors. Walls, closed doors and burning space continue
 to block routes. Exterior clicks near the doorstep select a point far enough
 outside for the whole character to clear the door. Other exterior walls and
 windows are not exits. Fire and smoke stay indoors despite the larger walking
-grid, and fog still hides the path behind the closed front door.
+grid. The exterior scenery stays visible, while closed-door navigation and
+line-of-sight click checks still prevent escape or interaction through walls.
 
 Escaping earns **+10 points**, added to existing decision points. A recorded
 missed opportunity to extinguish deducts **2 points**, with an explanation in
@@ -218,7 +243,9 @@ return to a now-unsafe fire. Each run's result and score are finalized once.
 Putting out the fire goes straight to **Good job! Fire extinguished**, retaining
 the existing extinguishing/decision points and question feedback. There is no
 extra success award on top of those points. Both successful endings and both
-death endings show a final score and **Play again**. The final screen stops
+death endings in Game/Dev show a final score and **Play again**. Fire and smoke
+death each deduct **10 points**, exactly once. Tutorial endings show no score.
+The final screen stops
 movement, fire/smoke simulation and cough audio. Play again reloads the scene
 and resets inventory, contents, score, opportunity history and the fire's
 25 cm / 20-second initial hold. Dev returns to class selection; Game rolls a new
@@ -228,7 +255,8 @@ completion offers a fresh tutorial run. Menu is available in all modes.
 ## Inventory, extinguishing and scoring
 
 There is exactly one inventory slot. The carried item is visible beside the
-character and named in the small inventory/score panel. Items can only be
+character and named in the small inventory panel (with a running score in Dev
+only). Items can only be
 picked up after walking within reach; hidden or inaccessible items cannot be
 used through closed doors. Swapping exchanges the incoming world item and the
 held item at the incoming item's position. Picking up a filled bucket later
@@ -247,9 +275,11 @@ Gas isolation is not included in this equipment version, so the class C scenario
 requires evacuation rather than extinguishing with the supplied items. A generic
 extinguisher does not suit every fire class.
 
-An attempt is allowed only **below 50 cm**, using the current footprint. The
+Successful extinguishing is allowed only **below 50 cm**, using the current footprint. The
 size is checked again when the distance question is answered. The action is
-hidden once the fire becomes too large; waiting in a question does not preserve
+available at every size while an item is held. A deliberate oversized attempt
+fails for **−5 points**, with no discharge; automatically cancelling a question
+as the fire grows does not charge for a new decision. Waiting does not preserve
 eligibility. Empty equipment cannot discharge. An extinguished fire loses its
 flames, collider and walking hazard and stays out, then ends the run with the
 final score. A successful discharge empties the bucket/extinguisher.
@@ -263,7 +293,8 @@ leaves the fire burning without discharging the item. An expired attempt or
 empty item gives no points. One answer is scored once, and an out fire cannot
 award more points. Cancelling the question makes no attempt and changes no score.
 Bucket success also earns +10 points; there is no extinguisher-distance question
-for a bucket. The result explains the decision and the score change.
+for a bucket. Game reports only the outcome and keeps scores for the final
+result; Tutorial explains the right/wrong answers without displaying scores.
 
 Filling takes **4 seconds** and requires the same empty bucket and continued
 access to the tap. Cancelling, losing access or dying interrupts it without
@@ -296,12 +327,14 @@ configurable on `SmokeHazard`.
 
 ## Room visibility
 
-Only the character's current line of sight is revealed. Unseen areas are
+Inside the house, only the character's current line of sight is revealed. Unseen areas are
 covered with opaque **dark gray**, including fire and smoke in hidden rooms.
 Closed doors hide the next room. Opening one reveals the view through its
 doorway; walls, corners and the opened door leaf still block sight. Connected
 rooms are not automatically revealed in full. Previously seen space darkens
 again when a door closes or the character moves behind a corner.
+The outdoor meadow stays visible as scenery; click access still respects doors
+and walls, so visibility of the garden does not create a remote exit.
 
 Hidden floors and objects reject mouse clicks, so the mask cannot be bypassed
 to walk blindly into a hidden room or inspect an unseen fire. Doors on the
@@ -387,6 +420,8 @@ for short, soft shadows at 30% strength. There is no instruction or movement fee
   original Dev defaults and a sealed initial Tutorial house.
 - `Gameplay/MenuPageController` and `Resources/UI/MenuArtwork`: illustrated
   startup page and Game/Tutorial/Dev choices.
+- `Gameplay/ScenarioPresentation`, `TutorialFeedback`: mode-specific hints,
+  score visibility and score-free correct/incorrect decision explanations.
 - `Gameplay/TutorialProgress`, `TutorialWalkthrough`: engine-independent lesson
   progression plus world-action observation, practice hazards, targets, quizzes
   and equipment/score checkpoints.
@@ -403,6 +438,8 @@ for short, soft shadows at 30% strength. There is no instruction or movement fee
   so runtime materials also work in player builds.
 - `Rendering/RuntimeMaterials` and `Resources/Materials`: explicit shader
   dependencies for the procedural house and flames, retained in standalone builds.
+- `Rendering/OutdoorEnvironment`, `WorldRing`: meadow/tree meshes and shared,
+  collider-free destination/object/tutorial rings.
 - `Editor/WindowsBuildValidation`: active-profile scene/material checks and a
   build-time check for an enabled scene startup component.
 
@@ -446,19 +483,35 @@ unchanged room connections, closed exit doors and mode-specific defaults.
 `Tests/TutorialProgressTests.cs` runs with `TutorialProgress.cs`. It checks the
 complete lesson sequence, action/briefing gates, quiz scoring, no skipped drills
 or repeated completion awards, checkpoint entry and coughing before leaving
-smoke. All ten suites can also be compiled separately with all scripts that do
+smoke, including both successful and mistaken extinguisher-swap paths.
+`Tests/ScenarioPresentationTests.cs` checks Game's hidden hints/running score,
+Tutorial's hidden final score, outcome-only Game feedback and explained Tutorial
+answers. All eleven suites can be compiled separately with all scripts that do
 not reference `UnityEngine`.
 Also check the following in the Unity Editor:
 
 - Open MenuPage, choose each of its three buttons, return with Menu, and repeat.
   Build with MenuPage first and confirm the same navigation in the player.
+- Inspect the garden at different aspect ratios and from the exit: grass should
+  fill the view with scattered trees, and hidden rooms must remain dark. Outdoor
+  scenery must never intercept floor/object clicks or create an alternate exit.
+- Click each door/window/extinguisher from a distance and nearby: a yellow ring
+  should mark the object, with no floor-destination ring during its approach.
+  Cancel, retarget and let a fire change navigation: the ring must remain on the
+  intended object until the interaction is dismissed.
+- In Game, inspect every class and an oversized fire: show only current size,
+  retain the extinguish action, and reveal the 5-point oversized-attempt deduction
+  only on the final score. Check both death types deduct ten exactly once.
+- In Tutorial, choose wet chemical during the ABC swap: review the wrong-swap
+  feedback, retrieve the same full bucket and continue. Check correct/incorrect
+  feedback after choices and no visible score on HUD, feedback or results.
 - Replay Game repeatedly: fire class/site and opening states must vary; the
   front door always starts closed and house geometry/player spawn never move.
 - Complete the Tutorial: follow all opening, inventory and A/B/F exercises;
   try wrong and right quiz answers, hear coughing and leave the smoke patch,
   then escape from the final gas fire. Instructions should pause the scene.
 - Die in a tutorial fire or smoke drill and use Retry lesson. Verify the same
-  lesson's instructions, appropriate equipment and its starting score return.
+  lesson's instructions and appropriate equipment return, with no visible score.
   Leave through Menu and re-enter Tutorial: it must start at Welcome.
 - Start and replay each **Dev** scenario: verify exactly the kitchen door and west
   living-room window are open, with **Close** as their action and the kitchen
@@ -479,7 +532,7 @@ Also check the following in the Unity Editor:
 - Extinguish with the bucket, ABC powder and wet chemical: verify the correct
   feedback and final accumulated points, with no duplicate bonus and no need
   to escape afterward. Simulation and coughing stop on final results.
-- Use **Play again** after escape, extinguishing, fire death and smoke death.
+- In **Dev**, use **Play again** after escape, extinguishing, fire death and smoke death.
   Verify the class selector returns, items/doors reset, score returns to zero
   and the next fire starts at 25 cm with its full 20-second hold.
 - Pick up each item and swap back: exactly one item is carried and the other

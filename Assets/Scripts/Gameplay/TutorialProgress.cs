@@ -1,4 +1,5 @@
 using System;
+using FireSafety.Equipment;
 
 namespace FireSafety.Gameplay
 {
@@ -74,7 +75,7 @@ namespace FireSafety.Gameplay
                     "The coffee table is burning. Water cools ordinary solid materials. Click the small fire, walk to a safe spot nearby and choose Extinguish the fire with bucket of water.\n\nThis drill uses your filled bucket. A successful discharge empties it.",
                     "Use your bucket of water on the small coffee-table fire.", TutorialAction.ExtinguishedA);
                 case TutorialStep.ExtinguishB: return new TutorialLesson("Class B: never a bucket of water",
-                    "The paint bottle is burning. Water can spread burning liquid. Pick up the ABC powder extinguisher, then click the fire.\n\nThe character approaches to 3–4 m. Select Extinguish and answer the distance question. A correct choice earns points. Powder can reduce indoor visibility and impair breathing.",
+                    "The paint bottle is burning. Water can spread burning liquid. Pick up the ABC powder extinguisher, then click the fire.\n\nThe character approaches to 3–4 m. Select Extinguish and answer the distance question. You will see the correct and incorrect answers after choosing. Powder can reduce indoor visibility and impair breathing.",
                     "Use ABC powder on the paint-bottle fire. Choose 3–4 metres in the question.", TutorialAction.ExtinguishedB);
                 case TutorialStep.ExtinguishF: return new TutorialLesson("Class F: cooking oil",
                     "The fryer is burning. Get the wet chemical extinguisher with the yellow band in the kitchen's northwest corner.\n\nNever pour water on burning oil: it can eject burning oil. This ABC powder model is not F-rated. Wet chemical cools and forms a protective layer. Its 3–3.7 m range is the 3–4 m answer in the question.",
@@ -115,6 +116,17 @@ namespace FireSafety.Gameplay
         {
             if (NeedsBriefing || IsComplete || TutorialLessons.Get(Step).Action != action || action == TutorialAction.None) return false;
             Advance(); return true;
+        }
+
+        public bool ObserveEquipment(EquipmentItem item)
+        {
+            if (item == null) return false;
+            TutorialAction action = TutorialAction.None;
+            if (Step == TutorialStep.PickUpBucket && item.Kind == EquipmentKind.Bucket) action = TutorialAction.BucketPickedUp;
+            if (Step == TutorialStep.FillBucket && item.HasWater) action = TutorialAction.BucketFilled;
+            if (Step == TutorialStep.SwapForExtinguisher && ExtinguishingRules.IsExtinguisher(item.Kind)) action = TutorialAction.SwappedForExtinguisher;
+            if (Step == TutorialStep.RetrieveWater && item.Kind == EquipmentKind.Bucket && item.HasWater) action = TutorialAction.WaterRetrieved;
+            return Observe(action);
         }
 
         public int Answer(int choice)

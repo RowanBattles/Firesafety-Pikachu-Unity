@@ -1,5 +1,6 @@
 using System;
 using FireSafety.Gameplay;
+using FireSafety.Equipment;
 
 public static class TutorialProgressTests
 {
@@ -60,6 +61,23 @@ public static class TutorialProgressTests
         {
             var retry = new TutorialProgress(step);
             Check(retry.Step == step && retry.NeedsBriefing, "Retry must restore the failed lesson with its instructions");
+        }
+        foreach (EquipmentKind extinguisher in new[] { EquipmentKind.AbcPowderExtinguisher, EquipmentKind.WetChemicalExtinguisher })
+        {
+            var swap = new TutorialProgress(TutorialStep.SwapForExtinguisher);
+            var water = new EquipmentItem(EquipmentKind.Bucket); water.Fill();
+            var tool = new EquipmentItem(extinguisher);
+            var inventory = new SingleSlotInventory(); inventory.Swap(water);
+            Check(!swap.ObserveEquipment(tool), "A pickup cannot bypass the swap briefing");
+            swap.ContinueBriefing();
+            Check(inventory.Swap(tool) == water && water.HasWater, "Swapping either extinguisher must leave the full bucket intact");
+            Check(swap.ObserveEquipment(inventory.Held) && swap.Step == TutorialStep.RetrieveWater,
+                "Choosing wet chemical instead of ABC must still advance to retrieving the bucket");
+            Check(TutorialFeedback.Practice(TutorialStep.SwapForExtinguisher, extinguisher).Correct
+                == (extinguisher == EquipmentKind.AbcPowderExtinguisher), "The wrong swap must still be identified as incorrect");
+            swap.ContinueBriefing(); inventory.Swap(water);
+            Check(swap.ObserveEquipment(inventory.Held) && swap.Step == TutorialStep.SmallFireSafety,
+                "Both swap paths must continue after retrieving the same water");
         }
         var smoke = new SmokeDrillProgress();
         Check(!smoke.Observe(false, 0f, false), "Starting in clear air must not pass smoke practice");

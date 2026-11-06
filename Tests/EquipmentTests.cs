@@ -133,6 +133,7 @@ public static class EquipmentTests
             ExtinguishingOutcome result = new ExtinguishingAttempt(fire, item).Resolve(2);
             Check(result.Extinguished == (size < 50), "Only fire strictly below 50 cm is eligible");
             Check(item.IsSpent == (size < 50), "A too-large fire must not consume the tool");
+            Check(result.Points == (size < 50 ? 10 : -5), "Deliberately trying a fire of 50 cm or more deducts five points");
         }
 
         var passage = new bool[25];
@@ -141,8 +142,12 @@ public static class EquipmentTests
         var delayed = new ExtinguishingAttempt(growing, waitingItem);
         growing.Advance(36, passage);
         ExtinguishingOutcome late = delayed.Resolve(2);
-        Check(!late.Extinguished && late.Points == 0 && !waitingItem.IsSpent,
-            "A fire that becomes too large during the question must be rejected on answering");
+        Check(!late.Extinguished && late.Points == -5 && !waitingItem.IsSpent,
+            "Answering after the fire grows too large is a failed attempt with a five-point penalty");
+        var expired = new ExtinguishingAttempt(growing, waitingItem);
+        Check(expired.Resolve(playerInitiated: false).Points == 0 && !waitingItem.IsSpent,
+            "Automatically cancelling an expired question must not charge for a new player decision");
+        Check(expired.Resolve(2).Points == 0, "Resolving a cancelled attempt again must not charge a second time");
 
         var extinguished = Fire();
         Check(new ExtinguishingAttempt(extinguished, Bucket(true)).Resolve().Extinguished, "A prepared bucket puts out the small fire");

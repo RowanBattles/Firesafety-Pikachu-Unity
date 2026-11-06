@@ -19,15 +19,13 @@ namespace FireSafety.Gameplay
         private TutorialProgress progress;
         private int checkpointScore, consumedFrame = -1;
         private SmokeDrillProgress smokeDrill = new SmokeDrillProgress();
-        private string answerFeedback = "";
+        private TutorialFeedback decision;
         private Transform marker;
-        private Material markerMaterial;
-        private Mesh markerMesh;
         private GUIStyle titleStyle, bodyStyle, buttonStyle, hintStyle;
         private static readonly Vector3 WalkTarget = new Vector3(-4.75f, 0f, -1.75f);
         public static readonly Vector3 SmokeTarget = new Vector3(-3.25f, 0f, -1.75f);
         public bool BlocksGameplay => progress != null && !progress.IsComplete
-            && (progress.NeedsBriefing || consumedFrame == Time.frameCount);
+            && (decision != null || progress.NeedsBriefing || consumedFrame == Time.frameCount);
         public bool GrowFire => progress != null && progress.Step == TutorialStep.Escape && !progress.NeedsBriefing;
         public bool IsComplete => progress != null && progress.IsComplete;
         private float Scale => Mathf.Min(1f, Mathf.Min((Screen.width - 32f) / 680f, (Screen.height - 32f) / 560f));
@@ -37,7 +35,7 @@ namespace FireSafety.Gameplay
         private Rect Answer(int index) => Within(24, 330 + index * 52, 632, 44);
         private Rect Hint => new Rect(Screen.width - Mathf.Min(465f, Screen.width - 24f) - 12f,
             Screen.height - 144f, Mathf.Min(465f, Screen.width - 24f), 130f);
-        private bool ShowObjective => progress != null && !progress.NeedsBriefing && !progress.IsComplete
+        private bool ShowObjective => progress != null && decision == null && !progress.NeedsBriefing && !progress.IsComplete
             && !house.Showcase.HasFinished && !house.Equipment.BlocksGameplay && !interaction.BlocksMovementInput;
 
         public static void ResetEntry() { requestedStep = TutorialStep.Welcome; requestedScore = 0; }
@@ -49,13 +47,7 @@ namespace FireSafety.Gameplay
             ResetEntry();
             house.Equipment.SetTutorialScore(checkpointScore);
             PrepareCheckpoint();
-            var target = new GameObject("Tutorial target"); target.transform.SetParent(house.transform, false);
-            markerMesh = CreateRing();
-            target.AddComponent<MeshFilter>().sharedMesh = markerMesh;
-            markerMaterial = RuntimeMaterials.Flame(new Color(0.25f, 0.95f, 0.9f));
-            target.AddComponent<MeshRenderer>().sharedMaterial = markerMaterial;
-            target.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            marker = target.transform; marker.gameObject.SetActive(false);
+            marker = WorldRing.Create(house.transform, "Tutorial target", new Color(0.25f, 0.95f, 0.9f));
             consumedFrame = Time.frameCount;
         }
 
@@ -97,6 +89,14 @@ namespace FireSafety.Gameplay
         private void Update()
         {
             if (progress == null || house.Showcase.HasFinished || progress.IsComplete) { if (marker != null) marker.gameObject.SetActive(false); return; }
+            if (decision != null)
+            {
+                marker.gameObject.SetActive(false);
+                if (Time.frameCount == consumedFrame || Mouse.current == null || !Mouse.current.leftButton.wasPressedThisFrame) return;
+                Vector2 pointer = Mouse.current.position.ReadValue(); pointer.y = Screen.height - pointer.y;
+                if (ContinueButton.Contains(pointer)) { decision = null; consumedFrame = Time.frameCount; }
+                return;
+            }
             if (progress.NeedsBriefing)
             {
                 marker.gameObject.SetActive(false);
@@ -111,7 +111,8 @@ namespace FireSafety.Gameplay
                         {
                             int points = progress.Answer(i);
                             house.Equipment.SetTutorialScore(house.Equipment.Score + points);
-                            answerFeedback = points < 0 ? "Try again. Choose the action that gets you safely out of danger. (-5 points)" : "";
+                            if (progress.Step != before) Advanced();
+                            ShowDecision(TutorialFeedback.Question(before, i));
                             consumedFrame = Time.frameCount;
                             break;
                         }
@@ -121,7 +122,7 @@ namespace FireSafety.Gameplay
                     progress.ContinueBriefing(); consumedFrame = Time.frameCount;
                     if (!progress.NeedsBriefing) BeginPractice();
                 }
-                if (progress.Step != before) Advanced();
+                if (decision == null && progress.Step != before) Advanced();
                 return;
             }
             ObservePractice();
@@ -130,7 +131,7 @@ namespace FireSafety.Gameplay
                 Vector2 pointer = Mouse.current.position.ReadValue();
                 if (Hint.Contains(new Vector2(pointer.x, Screen.height - pointer.y))) consumedFrame = Time.frameCount;
             }
-            if (!progress.NeedsBriefing)
+            if (decision == null && !progress.NeedsBriefing)
             {
                 Vector3 target = Target();
                 marker.position = new Vector3(target.x, Mathf.Max(1.55f, target.y + 0.05f), target.z);
@@ -153,6 +154,8 @@ namespace FireSafety.Gameplay
         private void ObservePractice()
         {
             EquipmentItem held = house.Equipment.Inventory.Held;
+            TutorialStep completed = progress.Step;
+            if (progress.ObserveEquipment(held)) { PracticeCompleted(completed, held); return; }
             TutorialAction action = TutorialAction.None;
             switch (progress.Step)
             {
@@ -161,10 +164,6 @@ namespace FireSafety.Gameplay
                 case TutorialStep.CloseWindow: if (!house.Opening(HouseOpening.LivingRoomWindow).IsOpen) action = TutorialAction.WindowClosed; break;
                 case TutorialStep.OpenDoor: if (house.Opening(HouseOpening.KitchenDoor).IsOpen) action = TutorialAction.DoorOpened; break;
                 case TutorialStep.CloseDoor: if (!house.Opening(HouseOpening.KitchenDoor).IsOpen) action = TutorialAction.DoorClosed; break;
-                case TutorialStep.PickUpBucket: if (held != null && held.Kind == EquipmentKind.Bucket) action = TutorialAction.BucketPickedUp; break;
-                case TutorialStep.FillBucket: if (held != null && held.HasWater) action = TutorialAction.BucketFilled; break;
-                case TutorialStep.SwapForExtinguisher: if (held != null && held.Kind == EquipmentKind.AbcPowderExtinguisher) action = TutorialAction.SwappedForExtinguisher; break;
-                case TutorialStep.RetrieveWater: if (held != null && held.Kind == EquipmentKind.Bucket && held.HasWater) action = TutorialAction.WaterRetrieved; break;
                 case TutorialStep.SmokePractice:
                     if (house.Showcase.Smoke != null)
                     {
@@ -175,15 +174,52 @@ namespace FireSafety.Gameplay
             }
             if (progress.Observe(action))
             {
-                if (action == TutorialAction.LeftSmoke) house.Showcase.ClearLessonHazards();
-                Advanced();
+                PracticeCompleted(completed, held);
             }
+        }
+
+        private void PracticeCompleted(TutorialStep completed, EquipmentItem held)
+        {
+            if (completed == TutorialStep.SmokePractice) house.Showcase.ClearLessonHazards();
+            Advanced();
+            ShowDecision(TutorialFeedback.Practice(completed, held == null ? (EquipmentKind?)null : held.Kind));
+        }
+
+        public void ShowDecision(TutorialFeedback feedback)
+        {
+            if (progress.IsComplete) return;
+            decision = feedback; consumedFrame = Time.frameCount;
+            player.StopMovement(); marker.gameObject.SetActive(false);
+        }
+
+        public void InteractionDecision(WorldInteractable target, string choice, bool success, string failure)
+        {
+            if (progress.NeedsBriefing || decision != null || progress.IsComplete) return;
+            bool expected = true;
+            var opening = target as OpenableObject;
+            if (progress.Step == TutorialStep.OpenWindow || progress.Step == TutorialStep.CloseWindow)
+                expected = opening != null && opening.Id == HouseOpening.LivingRoomWindow
+                    && choice == (progress.Step == TutorialStep.OpenWindow ? "Open" : "Close");
+            else if (progress.Step == TutorialStep.OpenDoor || progress.Step == TutorialStep.CloseDoor)
+                expected = opening != null && opening.Id == HouseOpening.KitchenDoor
+                    && choice == (progress.Step == TutorialStep.OpenDoor ? "Open" : "Close");
+            else if (target is PickupEquipment pickup)
+            {
+                if (progress.Step == TutorialStep.PickUpBucket || progress.Step == TutorialStep.RetrieveWater || progress.Step == TutorialStep.ExtinguishA)
+                    expected = pickup.Item.Kind == EquipmentKind.Bucket;
+                if (progress.Step == TutorialStep.ExtinguishB) expected = pickup.Item.Kind == EquipmentKind.AbcPowderExtinguisher;
+                if (progress.Step == TutorialStep.ExtinguishF) expected = pickup.Item.Kind == EquipmentKind.WetChemicalExtinguisher;
+            }
+            if (!success || !expected)
+                ShowDecision(new TutorialFeedback(false, "Your choice: " + choice + " " + target.DisplayName
+                    + ".\n\nCorrect action: " + TutorialLessons.Get(progress.Step).Objective
+                    + (string.IsNullOrEmpty(failure) ? "\n\nThis action does not complete the current exercise. You can try again." : "\n\n" + failure)));
         }
 
         private void Advanced()
         {
             checkpointScore = house.Equipment.Score;
-            answerFeedback = ""; consumedFrame = Time.frameCount;
+            consumedFrame = Time.frameCount;
             player.StopMovement(); marker.gameObject.SetActive(false);
         }
 
@@ -192,15 +228,18 @@ namespace FireSafety.Gameplay
             message = "";
             if (progress.Step != TutorialStep.ExtinguishA || item == null || item.Kind == EquipmentKind.Bucket) return true;
             message = "ABC and wet chemical can also suit class A. This drill practises water: fill your bucket and use it here.";
+            ShowDecision(new TutorialFeedback(false, "Correct action for this drill: use a full bucket.\n\n" + message));
             return false;
         }
 
         public bool FireExtinguished(FireType type)
         {
+            TutorialStep completed = progress.Step;
             TutorialAction action = type == FireType.A ? TutorialAction.ExtinguishedA
                 : type == FireType.B ? TutorialAction.ExtinguishedB : TutorialAction.ExtinguishedF;
             if (!progress.Observe(action)) return false;
-            house.Showcase.ClearLessonHazards(); Advanced(); return true;
+            house.Showcase.ClearLessonHazards(); Advanced();
+            ShowDecision(TutorialFeedback.Practice(completed)); return true;
         }
 
         public void Escaped()
@@ -241,7 +280,7 @@ namespace FireSafety.Gameplay
                 hintStyle = new GUIStyle(GUI.skin.label) { fontSize = 14, wordWrap = true };
             }
             TutorialLesson lesson = TutorialLessons.Get(progress.Step);
-            if (!progress.NeedsBriefing)
+            if (decision == null && !progress.NeedsBriefing)
             {
                 if (!ShowObjective) return;
                 GUI.Box(Hint, GUIContent.none);
@@ -257,39 +296,15 @@ namespace FireSafety.Gameplay
             Color old = GUI.color; GUI.color = new Color(0f, 0f, 0f, 0.7f);
             GUI.DrawTexture(new Rect(0, 0, Screen.width, Screen.height), Texture2D.whiteTexture); GUI.color = old;
             GUI.Box(Card, GUIContent.none, GUI.skin.window);
-            GUI.Label(Within(24, 18, 632, 58), lesson.Title, titleStyle);
-            GUI.Label(Within(24, 80, 632, 238), lesson.Body, bodyStyle);
-            if (lesson.Kind == LessonKind.Question)
+            GUI.Label(Within(24, 18, 632, 58), decision == null ? lesson.Title : decision.Title, titleStyle);
+            GUI.Label(Within(24, 80, 632, decision == null ? 238 : 390), decision == null ? lesson.Body : decision.Text, bodyStyle);
+            if (decision == null && lesson.Kind == LessonKind.Question)
             {
                 for (int i = 0; i < lesson.Answers.Length; i++) GUI.Box(Answer(i), lesson.Answers[i], buttonStyle);
-                GUI.Label(Within(24, 492, 632, 50), answerFeedback, bodyStyle);
             }
-            else GUI.Box(ContinueButton, lesson.Kind == LessonKind.Practice ? "Practice" : "Continue", buttonStyle);
-            GUI.Label(Within(24, 540, 632, 18), "Lesson " + ((int)progress.Step + 1) + " / " + (int)TutorialStep.Complete, bodyStyle);
-        }
-
-        private static Mesh CreateRing()
-        {
-            const int segments = 40;
-            var vertices = new Vector3[segments * 2]; var triangles = new int[segments * 6];
-            for (int i = 0; i < segments; i++)
-            {
-                float angle = i * Mathf.PI * 2f / segments;
-                Vector3 direction = new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle));
-                vertices[i * 2] = direction * 0.32f; vertices[i * 2 + 1] = direction * 0.48f;
-                int a = i * 2, b = a + 1, c = ((i + 1) % segments) * 2, d = c + 1;
-                int t = i * 6;
-                triangles[t] = a; triangles[t + 1] = c; triangles[t + 2] = b;
-                triangles[t + 3] = b; triangles[t + 4] = c; triangles[t + 5] = d;
-            }
-            var mesh = new Mesh { name = "Tutorial target ring" }; mesh.vertices = vertices; mesh.triangles = triangles; mesh.RecalculateBounds();
-            return mesh;
-        }
-
-        private void OnDestroy()
-        {
-            if (markerMaterial != null) Destroy(markerMaterial);
-            if (markerMesh != null) Destroy(markerMesh);
+            else GUI.Box(ContinueButton, decision == null && lesson.Kind == LessonKind.Practice ? "Practice" : "Continue", buttonStyle);
+            GUI.Label(Within(24, 540, 632, 18), decision == null
+                ? "Lesson " + ((int)progress.Step + 1) + " / " + (int)TutorialStep.Complete : "Review your decision", bodyStyle);
         }
     }
 }

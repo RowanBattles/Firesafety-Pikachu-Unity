@@ -17,6 +17,7 @@ namespace FireSafety.Movement
         private int waypoint;
         private ObjectInteraction interaction;
         private GridPathfinder plannedNavigation;
+        private bool markPathDestination;
         public bool IsMoving => waypoint < waypoints.Count;
         public float MoveSpeed => moveSpeed;
 
@@ -37,15 +38,16 @@ namespace FireSafety.Movement
             if (marker != null) marker.gameObject.SetActive(false);
         }
 
-        public void FollowPath(IReadOnlyList<int> path)
+        public void FollowPath(IReadOnlyList<int> path, bool markDestination = true)
         {
             StopMovement();
+            markPathDestination = markDestination;
             plannedNavigation = house.Navigation;
             // Include the current cell centre so new orders remain safe even during a step.
             foreach (int cell in path) waypoints.Add(house.CellToWorld(cell));
             if (waypoints.Count == 0) return;
             marker.position = waypoints[waypoints.Count - 1] + Vector3.up * 0.03f;
-            marker.gameObject.SetActive(true);
+            marker.gameObject.SetActive(markDestination);
         }
 
         private void Update()
@@ -60,7 +62,7 @@ namespace FireSafety.Movement
                 if (!valid)
                 {
                     int destination = house.WorldToCell(waypoints[waypoints.Count - 1]);
-                    if (house.Navigation.TryFindPath(house.WorldToCell(transform.position), destination, cells)) FollowPath(cells);
+                    if (house.Navigation.TryFindPath(house.WorldToCell(transform.position), destination, cells)) FollowPath(cells, markPathDestination);
                     else StopMovement();
                 }
                 plannedNavigation = house.Navigation;
