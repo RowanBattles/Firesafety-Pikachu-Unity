@@ -15,6 +15,7 @@ namespace FireSafety.Equipment
         private enum PanelState { None, Filling, Distance, Result }
         public SingleSlotInventory Inventory { get; } = new SingleSlotInventory();
         public int Score { get; private set; }
+        public IReadOnlyList<PickupEquipment> AvailableItems => availableItems;
         public bool BlocksGameplay => panel != PanelState.None || consumedFrame == Time.frameCount;
         private HousePrototype house;
         private ClickToMovePlayer player;
@@ -41,6 +42,12 @@ namespace FireSafety.Equipment
         { house = layout; player = character; interaction = controller; }
 
         public void Register(PickupEquipment item) => availableItems.Add(item);
+
+        public void SetTutorialScore(int score)
+        {
+            if (house.Mode != ScenarioMode.Tutorial) throw new System.InvalidOperationException("Tutorial score is only used in TutorialScene.");
+            Score = score;
+        }
 
         // Count an opportunity only after seeing the fire, with reachable ready equipment,
         // a usable firing position, an escape route and enough time before the fire grows.
@@ -112,6 +119,7 @@ namespace FireSafety.Equipment
         public bool BeginExtinguishing(FireHazard fire, out string message)
         {
             message = "";
+            if (house.Tutorial != null && !house.Tutorial.CanExtinguishWith(Inventory.Held, out message)) return false;
             targetFire = fire;
             attempt = new ExtinguishingAttempt(fire.Simulation, Inventory.Held);
             player.StopMovement();

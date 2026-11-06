@@ -1,12 +1,88 @@
-# Fire Safety — escape and extinguishing showcase
+# Fire Safety
 
 Unity **6000.6.7f1**, Universal Render Pipeline, New Input System.
 
+## Scenes and modes
+
+Open **Assets/Scenes/MenuPage.unity** and press **Play**. The illustrated menu
+offers **Game**, **Tutorial** and **Dev**. A **Menu** button in each house scene
+returns to this page, including during lessons or after a result.
+
+| Scene | Behaviour |
+| --- | --- |
+| MenuPage | Startup page with the three mode choices and original menu artwork. |
+| GameScene | Starts one random A/B/C/F fire automatically; class A randomly uses the table or bed. Each door/window has a random open/closed state, except the bottom front escape door, which always starts closed. Play again rolls a fresh scenario. |
+| TutorialScene | Guided, hands-on lessons with controlled fires, a smoke drill, questions, scoring and a final real-time escape. |
+| DevScene | The former SampleScene, preserving its asset GUID. Choose the fire class/location manually. The kitchen door and west living-room window start open as before. |
+
+All three house scenes use the same `HousePrototype` geometry, equipment and
+player spawn. Only scenario state changes. Open any scene directly in the Editor
+to work on that mode; the procedural house appears when Play starts.
+
+### Tutorial
+
+The tutorial teaches click movement and walk-first interaction, A/B/C/F classes
+(and why D is excluded), windows, doors, visibility, containment and ventilation.
+It then has you collect the bucket, fill it at the tap, swap it for ABC powder
+and retrieve the same water. Follow the cyan ring and the current objective.
+
+Put out a small class A table fire with water, a class B paint fire with ABC
+powder, and a class F fryer fire with wet chemical. The extinguisher distance
+questions use the existing scoring and working-distance rules. A gas-safety
+question teaches why a still-fed class C fire requires evacuation. Another
+question covers staying low and leaving smoke. Wrong safety answers deduct
+5 points; correct answers award 10 and move on.
+
+The controlled smoke patch uses the supplied coughing audio. Enter it until the
+warning, then leave for clear air to progress. There is no health bar; prolonged
+exposure still kills. The final drill starts a growing gas fire: open the front
+door and physically walk outside to finish and see your total points.
+
+Practice A/B/F fires stay at 25 cm. Instructions pause hazards and movement;
+practice is completed by world actions, rather than a Next button. Fire contact
+and prolonged smoke exposure remain fatal. **Retry lesson** restores that
+lesson's starting equipment and score checkpoint. Returning from Menu starts a
+new tutorial. Earlier practice fires do not create a missed-opportunity penalty
+for the final gas-fire escape.
+
+## Windows build
+
+1. Fetch and select the current game branch, then let Unity finish importing.
+2. Open **File > Build Profiles**, select **Windows**, and open **Scene List**.
+   Enable **MenuPage**, **GameScene**, **TutorialScene** and **DevScene**, in that
+   order. MenuPage must be first. The global list is already configured; if the
+   Windows profile overrides it, update that list too or turn off the override.
+3. **Fire Safety > Validate Windows Build** checks the active scene list and
+   menu artwork and runtime material assets. Windows builds check this
+   automatically and also validate the startup components and scenario mode.
+4. Build into a fresh output folder and run that new `.exe`. To move the game
+   to another laptop, copy the entire build folder, including `_Data` and
+   `UnityPlayer.dll`.
+
+House and flame materials live in `Assets/Resources/Materials`, with explicit
+URP shader references. Unity includes these shader dependencies in the player;
+runtime construction clones the templates and applies the same game colours.
+`Assets/link.xml` preserves the mesh and collider types used by
+`GameObject.CreatePrimitive`, including the player's capsule and sphere.
+The scene's **House Prototype** also references Unity's built-in default
+material, retaining the material used during primitive creation.
+
+A static sky/background with no house or class selector means startup did not
+reach the generated scene/camera setup. The screenshot alone cannot distinguish
+a wrong scene from an initialization exception. Inspect `Player.log` for the
+first error or exception after launching the newly built game. On Windows it is
+under `%USERPROFILE%\AppData\LocalLow\<Company Name>\<Product Name>\Player.log`.
+With the current Player Settings, the folder is
+`Unity Technologies\com.unity.template.urp-blank` under `LocalLow`.
+The cloud Editor currently has no active licence, so Windows player execution
+must be verified on a licensed local Unity installation.
+
 ## Play
 
-1. Open the project in Unity and open `Assets/Scenes/SampleScene.unity`.
-2. Press **Play**, click inside the **Game** window and choose fire class **A**,
-   **B**, **C** or **F**. Class A also lets you choose **Table** or **Bed**.
+1. Open `Assets/Scenes/MenuPage.unity` and press **Play**.
+2. Choose **Game** for a random fire, **Tutorial** for the walkthrough, or
+   **Dev** for the existing class/location selector. In Dev, choose **A**, **B**,
+   **C** or **F**. Class A also lets you choose **Table** or **Bed**.
 3. Left-click an open spot on the floor. The character walks there, going around
    furniture and through doorways to reach other rooms.
 4. Click again while walking to change the destination. The yellow dot marks
@@ -16,12 +92,14 @@ Unity **6000.6.7f1**, Universal Render Pipeline, New Input System.
    spot beside its frame first; only then does its action menu appear. Select
    **Do nothing**, or **Open** / **Close** depending on its current state.
    Press **Escape** or click outside the menu to dismiss it without taking action.
-   The **kitchen door** and west **living-room window** start open; their first
-   action is **Close**. Other doors and windows start closed.
+   Dev starts with the **kitchen door** and west **living-room window** open.
+   Game randomizes openings, always keeping the front escape door closed.
+   Tutorial starts with all openings closed for its exercises.
 6. Click the flames to walk to a safe, reachable spot nearby. The fire popup
    shows its current size in centimetres. With an item in your inventory and a
    fire smaller than 50 cm, it also offers **Extinguish the fire with <item>**.
-   The fire keeps growing while menus and the distance question are open.
+   In Game/Dev and the final tutorial escape, fire keeps growing while menus
+   and the distance question are open.
 7. Find the red **ABC powder extinguisher** beside the living room's west wall,
    or the blue **empty bucket** in the kitchen's northeast corner.
    Click one, walk to it and choose **Pick up**.
@@ -52,7 +130,7 @@ Unity **6000.6.7f1**, Universal Render Pipeline, New Input System.
 | C | Gas hob on the kitchen counter |
 | F | Deep fryer on the kitchen counter |
 
-Every scenario starts at **25 cm** and stays at that size without spreading for
+Game/Dev and the final tutorial escape start at **25 cm** and stay at that size without spreading for
 the first **20 seconds**. Exponential growth then begins. Ventilation scales
 the base 15-second doubling time: sealed rooms grow more slowly, while open
 doors and windows accelerate growth and spread.
@@ -74,10 +152,11 @@ three-minute timer and calling for help are not part of this showcase yet.
 
 ## Ventilation
 
-Each round starts with exactly **one open door and one open window**: the
+Each **Dev** round starts with exactly **one open door and one open window**: the
 kitchen door and west living-room window. Their visuals, click actions,
 navigation and visibility use the open state immediately. Play again restores
-this same pair. The front door and bedroom door start closed.
+this same pair. Game randomizes all opening states except the initially closed
+front escape door; Tutorial starts sealed and guides opening/closing exercises.
 
 Ventilation is calculated for the ignition room and any rooms connected to it
 through open internal doors. Each open door in that connected area adds **0.35**
@@ -103,7 +182,8 @@ create a walking exit or let fire grow outside the house.
 The simulation integrates growth every frame and resolves spread in fixed
 0.05-second steps, preserving rate changes within a step. Visual meshes refresh
 at 0.2-second intervals or immediately when another cell ignites. Gameplay
-tuning and the initial open pair live in `Fire/FireVentilation.cs`.
+tuning lives in `Fire/FireVentilation.cs`; mode-specific starting states and
+random fire choices live in `Gameplay/ScenarioSetup.cs`.
 
 ## Escape and final results
 
@@ -141,7 +221,9 @@ extra success award on top of those points. Both successful endings and both
 death endings show a final score and **Play again**. The final screen stops
 movement, fire/smoke simulation and cough audio. Play again reloads the scene
 and resets inventory, contents, score, opportunity history and the fire's
-25 cm / 20-second initial hold, returning to the fire-class selector.
+25 cm / 20-second initial hold. Dev returns to class selection; Game rolls a new
+fire and new opening states. Tutorial failures retry the current lesson and
+completion offers a fresh tutorial run. Menu is available in all modes.
 
 ## Inventory, extinguishing and scoring
 
@@ -299,6 +381,15 @@ for short, soft shadows at 30% strength. There is no instruction or movement fee
   advances fire and smoke, detects endings and displays final points / Play again.
 - `Gameplay/ScenarioResult`: immutable final score, escape bonus, missed-opportunity
   history and feedback for escaping, extinguishing or dying.
+- `Gameplay/SceneCatalog`, `SceneNavigation`: scene names, shared build order,
+  menu navigation and protection against input carrying through a scene change.
+- `Gameplay/ScenarioSetup`: reproducible random fire/opening choices for Game,
+  original Dev defaults and a sealed initial Tutorial house.
+- `Gameplay/MenuPageController` and `Resources/UI/MenuArtwork`: illustrated
+  startup page and Game/Tutorial/Dev choices.
+- `Gameplay/TutorialProgress`, `TutorialWalkthrough`: engine-independent lesson
+  progression plus world-action observation, practice hazards, targets, quizzes
+  and equipment/score checkpoints.
 - `Gameplay/ExtinguishingOpportunity`: checks that estimated travel and interaction
   time fit before the strict 50 cm limit, including the initial hold.
   This estimate updates with the current ventilation rate.
@@ -310,6 +401,10 @@ for short, soft shadows at 30% strength. There is no instruction or movement fee
 - `Visibility/FogOfWar`: dark gray visibility overlay and hidden-click filtering.
 - `Resources/Effects`: smoke and visibility shaders, included through Resources
   so runtime materials also work in player builds.
+- `Rendering/RuntimeMaterials` and `Resources/Materials`: explicit shader
+  dependencies for the procedural house and flames, retained in standalone builds.
+- `Editor/WindowsBuildValidation`: active-profile scene/material checks and a
+  build-time check for an enabled scene startup component.
 
 ## Validation
 
@@ -344,9 +439,28 @@ opportunity timing/class/contents rules, earlier-opportunity history and replay.
 It checks the initial pair, room isolation/connectivity, slower closed-room
 growth, faster spread, continuous size across toggles, partial-step rate changes,
 the 20-second hold and ventilation-aware opportunity timing.
+`Tests/ScenarioSetupTests.cs` runs with `SceneCatalog.cs`, `ScenarioSetup.cs`,
+`FireVentilation.cs` and `FireSimulation.cs`. It checks legal random fire/fuel
+pairs, all four classes and both A sites, varying openings, deterministic seeds,
+unchanged room connections, closed exit doors and mode-specific defaults.
+`Tests/TutorialProgressTests.cs` runs with `TutorialProgress.cs`. It checks the
+complete lesson sequence, action/briefing gates, quiz scoring, no skipped drills
+or repeated completion awards, checkpoint entry and coughing before leaving
+smoke. All ten suites can also be compiled separately with all scripts that do
+not reference `UnityEngine`.
 Also check the following in the Unity Editor:
 
-- Start and replay each scenario: verify exactly the kitchen door and west
+- Open MenuPage, choose each of its three buttons, return with Menu, and repeat.
+  Build with MenuPage first and confirm the same navigation in the player.
+- Replay Game repeatedly: fire class/site and opening states must vary; the
+  front door always starts closed and house geometry/player spawn never move.
+- Complete the Tutorial: follow all opening, inventory and A/B/F exercises;
+  try wrong and right quiz answers, hear coughing and leave the smoke patch,
+  then escape from the final gas fire. Instructions should pause the scene.
+- Die in a tutorial fire or smoke drill and use Retry lesson. Verify the same
+  lesson's instructions, appropriate equipment and its starting score return.
+  Leave through Menu and re-enter Tutorial: it must start at Welcome.
+- Start and replay each **Dev** scenario: verify exactly the kitchen door and west
   living-room window are open, with **Close** as their action and the kitchen
   already accessible. The bedroom and front door must still start closed.
 - Keep a small living-room fire running. Close the initially open window and

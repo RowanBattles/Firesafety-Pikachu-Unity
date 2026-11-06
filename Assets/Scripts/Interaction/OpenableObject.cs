@@ -14,6 +14,7 @@ namespace FireSafety.Interaction
         public override string StatusText => IsOpen ? "Status: Open" : "Status: Closed";
         public bool IsOpen { get; private set; }
         public bool IsDoor { get; private set; }
+        public HouseOpening Id { get; private set; }
         public override string ActionLabel => IsOpen ? "Close" : "Open";
         public Bounds NavigationBounds => IsOpen ? openBounds : closedBounds;
         public Bounds InteractionBounds { get; private set; }
@@ -28,10 +29,11 @@ namespace FireSafety.Interaction
         private HouseRoom firstRoom, secondRoom;
 
         public void Initialize(string displayName, OpeningKind kind, Transform leafHinge,
-            Collider panel, float openingAngle, VentilationOpening ventilation)
+            Collider panel, float openingAngle, VentilationOpening ventilation, HouseOpening id)
         {
             this.displayName = displayName;
             IsDoor = kind == OpeningKind.Door;
+            Id = id;
             firstRoom = ventilation.FirstRoom; secondRoom = ventilation.SecondRoom;
             IsOpen = ventilation.IsOpen;
             hinge = leafHinge;

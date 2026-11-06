@@ -3,13 +3,23 @@ using FireSafety.Interaction;
 using FireSafety.Fire;
 using FireSafety.Visibility;
 using FireSafety.Equipment;
+using FireSafety.Rendering;
+using FireSafety.Gameplay;
 using UnityEngine;
 
 namespace FireSafety.Movement
 {
-    // Attached to SampleScene. Geometry is generated only in Play mode; no baking or extra package is needed.
+    // Shared by DevScene, GameScene and TutorialScene. Geometry is generated in Play mode.
     public sealed class HousePrototype : MonoBehaviour
     {
+        // CreatePrimitive also needs its built-in material retained in a scene with no saved meshes.
+        [SerializeField] private Material primitiveDefaultMaterial = null;
+        public Material PrimitiveDefaultMaterial => primitiveDefaultMaterial;
+        [SerializeField] private ScenarioMode scenarioMode = ScenarioMode.Dev;
+        public ScenarioMode Mode => scenarioMode;
+        public ScenarioSetup Setup { get; private set; }
+        public TutorialWalkthrough Tutorial { get; private set; }
+        public FireShowcase Showcase => showcase;
         private const int Width = 40, Height = 40;
         private const float CellSize = 0.5f, PlayerScale = 1.25f;
         private const float PlayerRadius = 0.3f * PlayerScale;
@@ -34,13 +44,15 @@ namespace FireSafety.Movement
         public float CharacterRadius => PlayerRadius;
         public Vector3 GridOrigin => Origin;
         public EquipmentSystem Equipment { get; private set; }
-        public bool ScenarioBlocked => showcase != null && showcase.BlocksGameplay;
+        public bool ScenarioBlocked => SceneNavigation.TransitionThisFrame
+            || showcase != null && showcase.BlocksGameplay || Tutorial != null && Tutorial.BlocksGameplay;
         public bool GameplayBlocked => ScenarioBlocked || Equipment != null && Equipment.BlocksGameplay;
         public int OcclusionVersion { get; private set; }
         public OpenableObject FrontDoor { get; private set; }
 
         private void Awake()
         {
+            Setup = new ScenarioSetup(scenarioMode, new System.Random(System.Guid.NewGuid().GetHashCode()));
             Material wall = Material(new Color(0.25f, 0.34f, 0.36f));
             Material wood = Material(new Color(0.64f, 0.43f, 0.27f));
             Material cream = Material(new Color(0.87f, 0.82f, 0.69f));
@@ -75,7 +87,7 @@ namespace FireSafety.Movement
             // sink.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
             BuildFireSites(table, bed, cabinets, dark, white);
             HouseOpenings.Build(transform, Material(new Color(0.76f, 0.48f, 0.23f)), white,
-                Material(new Color(0.28f, 0.72f, 0.88f)), dark, openings);
+                Material(new Color(0.28f, 0.72f, 0.88f)), dark, openings, Setup);
             foreach (OpenableObject opening in openings)
             {
                 if (opening.IsDoor) opening.StateChanged += OnDoorChanged;
@@ -122,12 +134,23 @@ namespace FireSafety.Movement
             fog.transform.SetParent(transform, false);
             visibility = fog.AddComponent<FogOfWar>();
             visibility.Initialize(this, character.transform, view);
+            gameObject.AddComponent<SceneNavigation>();
+            if (Mode == ScenarioMode.Tutorial)
+            {
+                Tutorial = gameObject.AddComponent<TutorialWalkthrough>();
+                Tutorial.Initialize(this, player);
+            }
         }
 
         public bool IsFloor(Collider surface) => floors.Contains(surface);
         public bool IsVisiblePoint(Vector3 point) => visibility == null || visibility.CanSee(point);
         public bool HasEscaped(Vector3 point) => HouseExit.HasEscaped(point.x, point.z, PlayerRadius);
-        public void CompleteExtinguishing(string feedback) => showcase.CompleteExtinguishing(feedback);
+        public void CompleteExtinguishing(string feedback)
+        {
+            if (Tutorial != null && Tutorial.FireExtinguished(fire.Simulation.Type)) return;
+            showcase.CompleteExtinguishing(feedback);
+        }
+        public OpenableObject Opening(HouseOpening id) => openings.Find(opening => opening.Id == id);
         public double FireGrowthRate(Vector3 source)
         {
             ventilation.Clear();
@@ -319,9 +342,7 @@ namespace FireSafety.Movement
 
         private Material Material(Color color)
         {
-            var material = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-            material.SetColor("_BaseColor", color);
-            material.SetFloat("_Smoothness", 0.15f);
+            var material = RuntimeMaterials.House(color);
             materials.Add(material);
             return material;
         }

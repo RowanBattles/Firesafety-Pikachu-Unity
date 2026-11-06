@@ -138,6 +138,9 @@ Assets/Resources/Audio/freesound_community-cough-104521.mp3 -filter -diff -merge
 *.tiff                  lfs
 *.webp                  lfs
 
+# Include the menu illustration directly so fresh checkouts can display the menu.
+Assets/Resources/UI/MenuArtwork.png -filter -diff -merge -text
+
 # Compressed Archive
 *.7z                    lfs
 *.bz2                   lfs

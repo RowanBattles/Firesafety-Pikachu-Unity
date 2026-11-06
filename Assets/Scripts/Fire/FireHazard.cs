@@ -5,6 +5,7 @@ using FireSafety.Movement;
 using FireSafety.Equipment;
 using UnityEngine;
 using UnityEngine.Rendering;
+using FireSafety.Rendering;
 
 namespace FireSafety.Fire
 {
@@ -186,12 +187,7 @@ namespace FireSafety.Fire
             for (int i = 0; i < 8; i++) { indices.Add(first + i); indices.Add(first + 8); indices.Add(first + (i + 1) % 8); }
         }
 
-        private static Material FlameMaterial(Color color)
-        {
-            var material = new Material(Shader.Find("Universal Render Pipeline/Unlit"));
-            material.SetColor("_BaseColor", color);
-            return material;
-        }
+        private static Material FlameMaterial(Color color) => RuntimeMaterials.Flame(color);
 
         private void OnDestroy()
         {

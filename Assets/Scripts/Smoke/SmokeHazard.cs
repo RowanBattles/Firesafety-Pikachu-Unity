@@ -27,6 +27,8 @@ namespace FireSafety.Smoke
         private float emissionBudget, nextCough;
         private AudioSource voice;
         private AudioClip cough;
+        private int trainingSource = -1;
+        private Vector3 trainingCenter;
 
         public void Initialize(HousePrototype layout, FireHazard source, Transform character)
         {
@@ -74,12 +76,18 @@ namespace FireSafety.Smoke
 
         public void Tick(float seconds)
         {
-            if (!Active && fire.Simulation.SizeCm >= fullyDevelopedSizeCm) Active = true;
+            if (!Active && fire != null && fire.Simulation.SizeCm >= fullyDevelopedSizeCm) Active = true;
             if (Active)
             {
                 bool changedPassage = passageVersion != house.OcclusionVersion;
-                if (changedPassage) { passage = house.CreateFirePassageMask(); passageVersion = house.OcclusionVersion; }
-                simulation.Advance(seconds, passage, fire.Simulation.IsBurning);
+                if (changedPassage)
+                {
+                    passage = house.CreateFirePassageMask(); passageVersion = house.OcclusionVersion;
+                    if (trainingSource >= 0)
+                        for (int cellIndex = 0; cellIndex < passage.Length; cellIndex++)
+                            if ((house.CellToWorld(cellIndex) - trainingCenter).sqrMagnitude > 1.25f * 1.25f) passage[cellIndex] = false;
+                }
+                simulation.Advance(seconds, passage, EmitsSmoke);
                 if (changedPassage || fieldRevision != simulation.Revision) RefreshField();
                 EmitParticles(seconds);
             }
@@ -97,6 +105,15 @@ namespace FireSafety.Smoke
         }
 
         public void StopCoughing() { if (voice != null) voice.Stop(); }
+
+        public void InitializeTraining(HousePrototype layout, Transform character, Vector3 source)
+        {
+            Initialize(layout, null, character);
+            trainingCenter = source; trainingSource = house.WorldToCell(source); Active = true;
+        }
+
+        private bool EmitsSmoke(int cell) => trainingSource >= 0 ? cell == trainingSource
+            : fire != null && fire.Simulation.IsBurning(cell);
 
         private void RefreshField()
         {
@@ -134,6 +151,7 @@ namespace FireSafety.Smoke
         private void OnDestroy()
         {
             StopCoughing();
+            if (voice != null) Destroy(voice);
             if (field != null) Destroy(field);
             if (material != null) Destroy(material);
         }

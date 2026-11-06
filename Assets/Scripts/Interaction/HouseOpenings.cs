@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using FireSafety.Fire;
+using FireSafety.Gameplay;
 
 namespace FireSafety.Interaction
 {
@@ -8,23 +9,23 @@ namespace FireSafety.Interaction
     public static class HouseOpenings
     {
         public static void Build(Transform house, Material door, Material frame, Material glass,
-            Material handle, List<OpenableObject> openings)
+            Material handle, List<OpenableObject> openings, ScenarioSetup setup)
         {
             Door(house, "Kitchen door", new Vector3(0f, 0f, -5f), -90f, 2f,
-                door, frame, handle, openings, HouseOpening.KitchenDoor);
+                door, frame, handle, openings, HouseOpening.KitchenDoor, setup);
             Door(house, "Bedroom door", new Vector3(0f, 0f, 3f), -90f, 2f,
-                door, frame, handle, openings, HouseOpening.BedroomDoor);
+                door, frame, handle, openings, HouseOpening.BedroomDoor, setup);
             Door(house, "Front door", new Vector3(-6.4f, 0f, -8f), 0f, 2.8f,
-                door, frame, handle, openings, HouseOpening.FrontDoor);
+                door, frame, handle, openings, HouseOpening.FrontDoor, setup);
 
-            Window(house, "Living room window", new Vector3(-10f, 0f, -2f), -90f, frame, glass, openings, HouseOpening.LivingRoomWindow);
-            Window(house, "Living room garden window", new Vector3(-6f, 0f, 8f), 0f, frame, glass, openings, HouseOpening.LivingRoomGardenWindow);
-            Window(house, "Bedroom window", new Vector3(4f, 0f, 8f), 0f, frame, glass, openings, HouseOpening.BedroomWindow);
-            Window(house, "Kitchen window", new Vector3(10f, 0f, -3.8f), 90f, frame, glass, openings, HouseOpening.KitchenWindow);
+            Window(house, "Living room window", new Vector3(-10f, 0f, -2f), -90f, frame, glass, openings, HouseOpening.LivingRoomWindow, setup);
+            Window(house, "Living room garden window", new Vector3(-6f, 0f, 8f), 0f, frame, glass, openings, HouseOpening.LivingRoomGardenWindow, setup);
+            Window(house, "Bedroom window", new Vector3(4f, 0f, 8f), 0f, frame, glass, openings, HouseOpening.BedroomWindow, setup);
+            Window(house, "Kitchen window", new Vector3(10f, 0f, -3.8f), 90f, frame, glass, openings, HouseOpening.KitchenWindow, setup);
         }
 
         private static void Door(Transform house, string name, Vector3 position, float yaw,
-            float width, Material wood, Material frame, Material handle, List<OpenableObject> openings, HouseOpening id)
+            float width, Material wood, Material frame, Material handle, List<OpenableObject> openings, HouseOpening id, ScenarioSetup setup)
         {
             Transform root = Root(house, name, position, yaw);
             var opening = root.gameObject.AddComponent<OpenableObject>();
@@ -36,12 +37,12 @@ namespace FireSafety.Interaction
             Collider panel = Box(hinge, "Door leaf", new Vector3(width * 0.5f, 0.55f, 0f),
                 new Vector3(width, 1.1f, 0.16f), wood);
             Box(hinge, "Door handle", new Vector3(width - 0.2f, 1.12f, 0f), new Vector3(0.18f, 0.06f, 0.28f), handle);
-            opening.Initialize(name, OpeningKind.Door, hinge, panel, 90f, FireVentilation.InitialState(id));
+            opening.Initialize(name, OpeningKind.Door, hinge, panel, 90f, setup.Opening(id), id);
             openings.Add(opening);
         }
 
         private static void Window(Transform house, string name, Vector3 position, float yaw,
-            Material frame, Material glass, List<OpenableObject> openings, HouseOpening id)
+            Material frame, Material glass, List<OpenableObject> openings, HouseOpening id, ScenarioSetup setup)
         {
             Transform root = Root(house, name, position, yaw);
             var opening = root.gameObject.AddComponent<OpenableObject>();
@@ -56,7 +57,7 @@ namespace FireSafety.Interaction
             Collider panel = Box(hinge, "Blue window sash", new Vector3(1.1f, 0f, 0f), new Vector3(2.2f, 0.18f, 0.24f), glass);
             Box(hinge, "Window handle", new Vector3(2f, 0.12f, 0f), new Vector3(0.12f, 0.06f, 0.16f), frame);
             // Open outward, away from the walkable house interior. The wall remains a barrier.
-            opening.Initialize(name, OpeningKind.Window, hinge, panel, -70f, FireVentilation.InitialState(id));
+            opening.Initialize(name, OpeningKind.Window, hinge, panel, -70f, setup.Opening(id), id);
             openings.Add(opening);
         }
 
