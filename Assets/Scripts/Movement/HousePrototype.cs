@@ -30,6 +30,7 @@ namespace FireSafety.Movement
         private readonly List<OpenableObject> openings = new List<OpenableObject>();
         private readonly List<VentilationOpening> ventilation = new List<VentilationOpening>(7);
         private readonly List<Bounds> walls = new List<Bounds>();
+        private readonly List<SightObstacle> sightWindows = new List<SightObstacle>();
         private readonly Dictionary<FireLocation, FireSite> fireSites = new Dictionary<FireLocation, FireSite>();
         private FireHazard fire;
         private FireShowcase showcase;
@@ -163,16 +164,28 @@ namespace FireSafety.Movement
         public void CopySightObstacles(List<SightObstacle> result)
         {
             result.Clear();
-            foreach (Bounds wall in walls) AddSightObstacle(result, wall);
+            sightWindows.Clear();
+            foreach (OpenableObject opening in openings)
+                if (!opening.IsDoor)
+                {
+                    Bounds pane = opening.WindowPaneBounds;
+                    // Extend through the wall thickness, preserving the actual width of the glass.
+                    pane.Expand(pane.size.x > pane.size.z ? new Vector3(0, 0, 1) : new Vector3(1, 0, 0));
+                    sightWindows.Add(SightBounds(pane));
+                }
+            foreach (Bounds wall in walls) VisibilityMap.AddWallWithWindows(SightBounds(wall), sightWindows, result);
             foreach (OpenableObject opening in openings)
                 if (opening.IsDoor) AddSightObstacle(result, opening.NavigationBounds);
         }
 
         private static void AddSightObstacle(List<SightObstacle> result, Bounds bounds)
+            => result.Add(SightBounds(bounds));
+
+        private static SightObstacle SightBounds(Bounds bounds)
         {
             // Close floating-point cracks where a door leaf meets a wall.
             const float seam = 0.002f;
-            result.Add(new SightObstacle(bounds.min.x - seam, bounds.min.z - seam, bounds.max.x + seam, bounds.max.z + seam));
+            return new SightObstacle(bounds.min.x - seam, bounds.min.z - seam, bounds.max.x + seam, bounds.max.z + seam);
         }
 
         public int WorldToCell(Vector3 point)

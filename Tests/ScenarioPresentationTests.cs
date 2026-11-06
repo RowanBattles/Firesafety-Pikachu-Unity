@@ -44,9 +44,10 @@ public static class ScenarioPresentationTests
             {
                 TutorialFeedback feedback = TutorialFeedback.Question(step, choice);
                 Check(feedback.Correct == (choice == lesson.CorrectAnswer), "Tutorial must identify both right and wrong choices");
-                Check(feedback.Text.Contains("Your answer: " + lesson.Answers[choice])
-                    && feedback.Text.Contains("Correct answer: " + lesson.Answers[lesson.CorrectAnswer])
-                    && feedback.Text.Contains("Incorrect answers:"), "Feedback must show the chosen, correct and incorrect answers");
+                Check(feedback.Correct ? !feedback.Text.Contains("Your answer:") && !feedback.Text.Contains("Incorrect answers:")
+                    : feedback.Text.Contains("Your answer: " + lesson.Answers[choice])
+                        && feedback.Text.Contains("Correct answer: " + lesson.Answers[lesson.CorrectAnswer]),
+                    "Correct answers need a concise takeaway; wrong choices must still identify the correct answer");
                 Check(!HasScore(feedback.Text), "Tutorial explanations must never show points");
             }
         }
@@ -56,14 +57,15 @@ public static class ScenarioPresentationTests
                 var outcome = new ExtinguishingOutcome(choice == 2, choice == 2 ? 10 : -5, "The fire " + (choice == 2 ? "is out." : "is still burning."));
                 TutorialFeedback feedback = TutorialFeedback.Extinguishing(kind, kind == EquipmentKind.WetChemicalExtinguisher ? FireType.F : FireType.B,
                     choice, ExtinguishingBlock.None, outcome);
-                Check(feedback.Text.Contains("Correct answer: 3–4 metres") && feedback.Text.Contains("Incorrect answers:"),
-                    "Both extinguisher questions must explain all answers in Tutorial");
+                Check(feedback.Text.Contains(kind == EquipmentKind.WetChemicalExtinguisher ? "3–3.7 metres" : "3–4 metres")
+                    && (feedback.Correct ? !feedback.Text.Contains("Your answer:") : feedback.Text.Contains("Correct answer: 3–4 metres")),
+                    "Extinguisher feedback must give the working range, correcting an incorrect choice without listing every distractor");
                 Check(feedback.Correct == outcome.Extinguished && !HasScore(feedback.Text), "Distance feedback must be accurate and score-free");
             }
         foreach (TutorialStep step in Enum.GetValues(typeof(TutorialStep)))
             Check(!HasScore(TutorialLessons.Get(step).Body), "Tutorial lesson copy must not mention scores");
         string wrongSwap = TutorialFeedback.Practice(TutorialStep.SwapForExtinguisher, EquipmentKind.WetChemicalExtinguisher).Text;
-        Check(wrongSwap.Contains("wrong items, but that's okay") && wrongSwap.Contains("next step") && !HasScore(wrongSwap),
+        Check(wrongSwap.Contains("wrong items, but that's okay") && wrongSwap.ToLowerInvariant().Contains("next step") && !HasScore(wrongSwap),
             "The wrong swap should reassure the player and direct them onward without points");
         Console.WriteLine("Scenario presentation: " + checks + " checks passed.");
     }

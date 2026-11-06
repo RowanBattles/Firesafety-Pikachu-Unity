@@ -20,6 +20,7 @@ namespace FireSafety.Interaction
         public override string ActionLabel => IsOpen ? "Close" : "Open";
         public Bounds NavigationBounds => IsOpen ? openBounds : closedBounds;
         public Bounds InteractionBounds { get; private set; }
+        public Bounds WindowPaneBounds => closedBounds;
         public event Action StateChanged;
         public VentilationOpening VentilationState => new VentilationOpening(firstRoom, secondRoom, IsDoor, IsOpen);
 

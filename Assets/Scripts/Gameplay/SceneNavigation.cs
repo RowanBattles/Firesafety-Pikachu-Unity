@@ -8,6 +8,7 @@ namespace FireSafety.Gameplay
     public sealed class SceneNavigation : MonoBehaviour
     {
         private static int transitionFrame = -1;
+        private GUIStyle menuStyle;
         public static bool TransitionThisFrame => transitionFrame == Time.frameCount;
         private Rect MenuButton => new Rect(Screen.width - 108f, 14f, 94f, 34f);
 
@@ -29,7 +30,9 @@ namespace FireSafety.Gameplay
         private void OnGUI()
         {
             int depth = GUI.depth; GUI.depth = -1000;
-            GUI.Box(MenuButton, "Menu"); GUI.depth = depth;
+            if (menuStyle == null) menuStyle = new GUIStyle(GUI.skin.button)
+                { alignment = TextAnchor.MiddleCenter, fontSize = 14, padding = new RectOffset(0, 0, 0, 0) };
+            GUI.Box(MenuButton, "Menu", menuStyle); GUI.depth = depth;
         }
     }
 }
