@@ -26,7 +26,7 @@ namespace FireSafety.Fire
         private bool choosing = true, choosingLocation;
         private readonly ScenarioResult result = new ScenarioResult();
         private int consumedFrame = -1;
-        private float tick, nextOpportunityCheck;
+        private float nextOpportunityCheck;
         private GUIStyle titleStyle, textStyle, buttonStyle;
         public bool BlocksGameplay => choosing || result.IsFinished || consumedFrame == Time.frameCount;
         private Rect Panel => new Rect((Screen.width - PanelWidth) * 0.5f, (Screen.height - 310f) * 0.5f, PanelWidth, 310f);
@@ -73,8 +73,7 @@ namespace FireSafety.Fire
             }
             if (fire == null) return;
             if (fire.Simulation.IsExtinguished) { CompleteExtinguishing(""); return; }
-            tick += Time.deltaTime;
-            if (tick >= 0.2f) { fire.Tick(tick); tick = 0f; }
+            fire.Tick(Time.deltaTime);
             smoke.Tick(Time.deltaTime);
             if (house.IsFireDanger(player.transform.position)) { Finish(ScenarioEnding.FireDeath); return; }
             if (smoke.Exposure.IsDead) { Finish(ScenarioEnding.SmokeDeath); return; }

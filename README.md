@@ -16,6 +16,8 @@ Unity **6000.6.7f1**, Universal Render Pipeline, New Input System.
    spot beside its frame first; only then does its action menu appear. Select
    **Do nothing**, or **Open** / **Close** depending on its current state.
    Press **Escape** or click outside the menu to dismiss it without taking action.
+   The **kitchen door** and west **living-room window** start open; their first
+   action is **Close**. Other doors and windows start closed.
 6. Click the flames to walk to a safe, reachable spot nearby. The fire popup
    shows its current size in centimetres. With an item in your inventory and a
    fire smaller than 50 cm, it also offers **Extinguish the fire with <item>**.
@@ -25,13 +27,13 @@ Unity **6000.6.7f1**, Universal Render Pipeline, New Input System.
    Click one, walk to it and choose **Pick up**.
    Carrying another item changes this to **Swap items**: the old item is left at
    the new item's exact location, preserving its water/remaining charge.
-8. To fill the bucket, open the kitchen door, enter and click the **water tap** on the
+8. To fill the bucket, enter the kitchen and click the **water tap** on the
    utility sink near the kitchen's southwest corner. Select **Fill bucket** and
    stay there for 4 seconds. **Cancel filling** or **Escape** leaves it empty.
 9. For a small class A fire, a filled bucket can put it out directly. With the
    ABC extinguisher, the character first walks to a reachable working position
    3–4 m from the source. Choose its starting-distance range in the question.
-10. For a cooking-oil (class F) fire, open the kitchen door and pick up the red
+10. For a cooking-oil (class F) fire, enter the kitchen and pick up the red
    **wet chemical extinguisher** with the yellow band in the kitchen's north-west
    corner, just inside the door. The character walks to a working position
    3–3.7 m from the fire before the distance question appears (answer 3–4 m).
@@ -51,8 +53,9 @@ Unity **6000.6.7f1**, Universal Render Pipeline, New Input System.
 | F | Deep fryer on the kitchen counter |
 
 Every scenario starts at **25 cm** and stays at that size without spreading for
-the first **20 seconds**. Exponential growth then begins, with a 15-second
-doubling time: 50 cm at 35 seconds, then 100 cm at 50 seconds.
+the first **20 seconds**. Exponential growth then begins. Ventilation scales
+the base 15-second doubling time: sealed rooms grow more slowly, while open
+doors and windows accelerate growth and spread.
 The spread is resolved on a 0.5-metre grid; the popup
 reports the occupied footprint's width in cm. Room boundaries naturally limit
 this footprint even though the fire continues developing inside the room.
@@ -68,6 +71,39 @@ Burning space is excluded from walking and interaction routes. Routes are
 rechecked as the fire grows. If fire reaches the character, the demo ends with
 **Caught by the fire**, the earned points and a **Play again** button. The
 three-minute timer and calling for help are not part of this showcase yet.
+
+## Ventilation
+
+Each round starts with exactly **one open door and one open window**: the
+kitchen door and west living-room window. Their visuals, click actions,
+navigation and visibility use the open state immediately. Play again restores
+this same pair. The front door and bedroom door start closed.
+
+Ventilation is calculated for the ignition room and any rooms connected to it
+through open internal doors. Each open door in that connected area adds **0.35**
+to the growth rate; each open window adds **0.4**. A sealed room has a rate of
+**0.5**, and the total rate is capped at **3.0**. An open front door adds airflow
+without connecting separate rooms via the outside. A window behind a closed
+door affects its own room, rather than a fire in an isolated room.
+
+| Situation | Growth rate | Time to double after the initial hold |
+| --- | --- | --- |
+| All openings in the fire's connected rooms closed | 0.5× | 30 seconds |
+| Initial living-room / kitchen open pair | 1.25× | 12 seconds |
+| Maximum ventilation | 3× | 5 seconds |
+
+With the initial pair unchanged, a living-room or kitchen fire reaches 50 cm
+at about **32 seconds**. The initially closed bedroom reaches 50 cm at about
+**50 seconds** if its openings stay closed. Changing an opening changes future
+growth immediately: closing never shrinks fire that is already present, and
+opening never jumps its size forward. The full 20-second hold applies at every
+rate. Closed doors and walls still contain spread; opening a window does not
+create a walking exit or let fire grow outside the house.
+
+The simulation integrates growth every frame and resolves spread in fixed
+0.05-second steps, preserving rate changes within a step. Visual meshes refresh
+at 0.2-second intervals or immediately when another cell ignites. Gameplay
+tuning and the initial open pair live in `Fire/FireVentilation.cs`.
 
 ## Escape and final results
 
@@ -88,7 +124,8 @@ An opportunity is recorded only after the player can see a fire below 50 cm,
 with ready, suitable equipment visible and reachable (or already held), a
 reachable working position and a route to the front door. The estimated walk
 plus 4 seconds for pickup/question input must fit before the fire reaches
-50 cm. Active smoke disqualifies the opportunity. Empty equipment, an unseen
+50 cm, using its current ventilation rate and accumulated growth. Active smoke
+disqualifies the opportunity. Empty equipment, an unseen
 fire, an unsafe agent or a gas fire with its supply still on do not qualify.
 ABC powder and the team's wet chemical extinguisher use their existing class
 and distance rules. A filled bucket can qualify for class A; an empty one does
@@ -197,8 +234,8 @@ Click another object or the floor to cancel an approach and issue a new order.
 Press **Escape** while approaching to cancel and stop. If a door changes during
 the approach, the route is recalculated or the interaction is cancelled.
 
-Doors and windows start closed. Open the kitchen and bedroom doors before
-walking into those rooms. Closed doors block routes; open door leaves also
+The kitchen door and west living-room window start open. Open the bedroom
+door before walking into that room. Closed doors block routes; open door leaves also
 occupy space, so the character walks around them. The character stops on arrival
 before showing the menu. A door cannot open or close onto the character: move clear of it
 and try again if the menu asks you to do so.
@@ -253,7 +290,9 @@ for short, soft shadows at 30% strength. There is no instruction or movement fee
 - `Equipment/EquipmentWorld`, `PickupEquipment`, `WaterTap`: clickable equipment,
   carried visuals and the kitchen sink, using the shared walk-first interaction.
 - `Fire/FireSimulation`: engine-independent exponential growth and room/door
-  spread model, with fixed simulation steps to avoid frame-rate-dependent leaks.
+  spread model, integrating ventilation over time with fixed spread steps.
+- `Fire/FireVentilation`: room connectivity, opening ownership, initial open
+  states and airflow-based growth rates.
 - `Fire/FireHazard`: draws orange/yellow flames, supplies hazard footprints and
   updates the walking grid as the fire expands.
 - `Fire/FireShowcase`: handles class selection, starts the matching scenario,
@@ -262,6 +301,7 @@ for short, soft shadows at 30% strength. There is no instruction or movement fee
   history and feedback for escaping, extinguishing or dying.
 - `Gameplay/ExtinguishingOpportunity`: checks that estimated travel and interaction
   time fit before the strict 50 cm limit, including the initial hold.
+  This estimate updates with the current ventilation rate.
 - `Smoke/SmokeSimulation`: fast, fixed-step smoke spread through open passages.
 - `Smoke/SmokeExposure`: accumulated inhalation dose, cough warning and death.
 - `Smoke/SmokeHazard`: smoke particles, density clipping, exposure and cough audio.
@@ -299,8 +339,21 @@ visibility and keeping hazards off the exterior path.
 `ExtinguishingOpportunity.cs`, `InventoryState.cs`, `ExtinguishingRules.cs` and
 `FireSimulation.cs`. It checks final score breakdowns, one-time awards,
 opportunity timing/class/contents rules, earlier-opportunity history and replay.
+`Tests/FireVentilationTests.cs` runs with `FireVentilation.cs`, `FireSimulation.cs`,
+`InventoryState.cs`, `ExtinguishingRules.cs` and `ExtinguishingOpportunity.cs`.
+It checks the initial pair, room isolation/connectivity, slower closed-room
+growth, faster spread, continuous size across toggles, partial-step rate changes,
+the 20-second hold and ventilation-aware opportunity timing.
 Also check the following in the Unity Editor:
 
+- Start and replay each scenario: verify exactly the kitchen door and west
+  living-room window are open, with **Close** as their action and the kitchen
+  already accessible. The bedroom and front door must still start closed.
+- Keep a small living-room fire running. Close the initially open window and
+  kitchen door: its future growth must slow. Open them again: growth must speed
+  up, with no sudden resizing. Check the initial hold remains a full 20 seconds.
+- Keep the bedroom door closed and open a living-room window: the bedroom fire
+  must keep its sealed-room rate. Open the bedroom door to connect the airflow.
 - With the front door closed, click outside: no escape should occur. Open it,
   click the visible path and verify the character walks through before the
   final **You escaped!** screen appears. Check doorstep and path-edge clicks too.
@@ -338,7 +391,7 @@ Also check the following in the Unity Editor:
   movement is blocked until selection is finished.
 - Inspect a small fire: walk first, display size in cm, **Continue** closes the
   popup and fire continues growing during inspection.
-- Leave both internal doors closed: verify kitchen/bedroom fire stays in its room.
+- Close both internal doors: verify kitchen/bedroom fire stays in its room.
 - Open a door while fire is developing: verify spread through the gap, without
   flames appearing through the solid wall or outside the house.
 - Attempt to close an engulfed doorway: the action must be refused.

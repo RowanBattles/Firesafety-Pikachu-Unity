@@ -1,5 +1,6 @@
 using System;
 using UnityEngine;
+using FireSafety.Fire;
 
 namespace FireSafety.Interaction
 {
@@ -17,18 +18,22 @@ namespace FireSafety.Interaction
         public Bounds NavigationBounds => IsOpen ? openBounds : closedBounds;
         public Bounds InteractionBounds { get; private set; }
         public event Action StateChanged;
+        public VentilationOpening VentilationState => new VentilationOpening(firstRoom, secondRoom, IsDoor, IsOpen);
 
         private Transform hinge;
         private Quaternion closedRotation;
         private Quaternion openRotation;
         private Bounds closedBounds;
         private Bounds openBounds;
+        private HouseRoom firstRoom, secondRoom;
 
         public void Initialize(string displayName, OpeningKind kind, Transform leafHinge,
-            Collider panel, float openingAngle)
+            Collider panel, float openingAngle, VentilationOpening ventilation)
         {
             this.displayName = displayName;
             IsDoor = kind == OpeningKind.Door;
+            firstRoom = ventilation.FirstRoom; secondRoom = ventilation.SecondRoom;
+            IsOpen = ventilation.IsOpen;
             hinge = leafHinge;
             closedRotation = hinge.localRotation;
             openRotation = closedRotation * Quaternion.Euler(0f, openingAngle, 0f);
@@ -43,7 +48,7 @@ namespace FireSafety.Interaction
             hinge.localRotation = openRotation;
             Physics.SyncTransforms();
             openBounds = panel.bounds;
-            hinge.localRotation = closedRotation;
+            hinge.localRotation = IsOpen ? openRotation : closedRotation;
             Physics.SyncTransforms();
         }
 

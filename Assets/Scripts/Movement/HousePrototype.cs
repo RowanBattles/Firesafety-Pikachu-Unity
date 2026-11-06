@@ -18,6 +18,7 @@ namespace FireSafety.Movement
         private readonly HashSet<Collider> floors = new HashSet<Collider>();
         private readonly List<Material> materials = new List<Material>();
         private readonly List<OpenableObject> openings = new List<OpenableObject>();
+        private readonly List<VentilationOpening> ventilation = new List<VentilationOpening>(7);
         private readonly List<Bounds> walls = new List<Bounds>();
         private readonly Dictionary<FireLocation, FireSite> fireSites = new Dictionary<FireLocation, FireSite>();
         private FireHazard fire;
@@ -78,6 +79,7 @@ namespace FireSafety.Movement
             foreach (OpenableObject opening in openings)
             {
                 if (opening.IsDoor) opening.StateChanged += OnDoorChanged;
+                opening.StateChanged += OnVentilationChanged;
                 if (opening.DisplayName == "Front door") FrontDoor = opening;
             }
             BuildNavigation();
@@ -126,6 +128,12 @@ namespace FireSafety.Movement
         public bool IsVisiblePoint(Vector3 point) => visibility == null || visibility.CanSee(point);
         public bool HasEscaped(Vector3 point) => HouseExit.HasEscaped(point.x, point.z, PlayerRadius);
         public void CompleteExtinguishing(string feedback) => showcase.CompleteExtinguishing(feedback);
+        public double FireGrowthRate(Vector3 source)
+        {
+            ventilation.Clear();
+            foreach (OpenableObject opening in openings) ventilation.Add(opening.VentilationState);
+            return FireVentilation.GrowthRate(FireVentilation.RoomAt(source.x, source.z), ventilation);
+        }
         public Vector3 FloorDestination(Collider surface, Vector3 clicked)
             => surface == frontPath ? new Vector3(HouseExit.TargetX(clicked.x, PlayerRadius, CellSize), 0f,
                 HouseExit.TargetZ(clicked.z, PlayerRadius, CellSize)) : clicked;
@@ -241,6 +249,11 @@ namespace FireSafety.Movement
             if (player != null) player.StopMovement();
         }
 
+        private void OnVentilationChanged()
+        {
+            if (fire != null) fire.RefreshVentilation();
+        }
+
         private GameObject Floor(string name, float x, float z, float width, float depth, Material material)
         {
             GameObject floor = Box(name, new Vector3(x, -0.1f, z), new Vector3(width, 0.2f, depth), material);
@@ -316,7 +329,11 @@ namespace FireSafety.Movement
         private void OnDestroy()
         {
             foreach (OpenableObject opening in openings)
-                if (opening != null) opening.StateChanged -= OnDoorChanged;
+                if (opening != null)
+                {
+                    opening.StateChanged -= OnDoorChanged;
+                    opening.StateChanged -= OnVentilationChanged;
+                }
             foreach (Material material in materials) Destroy(material);
         }
     }

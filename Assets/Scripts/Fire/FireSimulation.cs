@@ -16,17 +16,19 @@ namespace FireSafety.Fire
         private readonly bool[] burning;
         private readonly double[] heat;
         private readonly List<int> ignitions = new List<int>();
-        private double accumulator, steppedTime;
+        private double accumulator, pendingTravel;
         public FireType Type { get; }
         public FireLocation Location { get; }
         public int Seed { get; }
         public double ElapsedSeconds { get; private set; }
+        public double GrowthElapsedSeconds { get; private set; }
+        public double GrowthRateMultiplier { get; private set; } = 1.0;
         public int BurningCellCount { get; private set; } = 1;
         public bool IsExtinguished => BurningCellCount == 0;
         public double DoublingSeconds { get; }
         public double InitialSizeCm { get; }
         // The exponential drive is bounded numerically; the actual footprint stays inside the house.
-        public double GrowthSizeCm => IsExtinguished ? 0 : GrowthAt(ElapsedSeconds);
+        public double GrowthSizeCm => IsExtinguished ? 0 : GrowthAt(GrowthElapsedSeconds);
         public double SourceWidthMeters => Math.Min(GrowthSizeCm / 100.0, cellSize * 2.0);
 
         public FireSimulation(int width, int height, double cellSize, int seed, FireType type,
@@ -48,6 +50,13 @@ namespace FireSafety.Fire
         }
 
         public bool IsBurning(int cell) => cell >= 0 && cell < burning.Length && burning[cell];
+
+        public void SetGrowthRateMultiplier(double multiplier)
+        {
+            if (multiplier <= 0 || double.IsNaN(multiplier) || double.IsInfinity(multiplier))
+                throw new ArgumentOutOfRangeException(nameof(multiplier));
+            GrowthRateMultiplier = multiplier;
+        }
 
         // Width of the occupied fire footprint in centimetres, capped naturally by room boundaries.
         public double SizeCm
@@ -75,14 +84,26 @@ namespace FireSafety.Fire
                 throw new ArgumentOutOfRangeException(nameof(seconds));
             if (passage == null || passage.Length != burning.Length) throw new ArgumentException("Wrong passage mask.");
             if (IsExtinguished) return;
-            ElapsedSeconds += seconds;
-            accumulator += seconds;
-            while (accumulator + 1e-9 >= StepSeconds)
+            double targetTime = ElapsedSeconds + seconds;
+            while (ElapsedSeconds < targetTime)
             {
-                double travel = steppedTime >= InitialHoldSeconds + DoublingSeconds * 20.0 ? cellSize
-                    : (GrowthAt(steppedTime + StepSeconds) - GrowthAt(steppedTime)) / 200.0;
-                steppedTime += StepSeconds;
-                accumulator -= StepSeconds;
+                double slice = Math.Min(targetTime - ElapsedSeconds, StepSeconds - accumulator);
+                double nextTime = ElapsedSeconds + slice;
+                double activeSeconds = Math.Max(0, nextTime - InitialHoldSeconds)
+                    - Math.Max(0, ElapsedSeconds - InitialHoldSeconds);
+                double previousGrowth = GrowthElapsedSeconds;
+                GrowthElapsedSeconds += activeSeconds * GrowthRateMultiplier;
+                pendingTravel += (GrowthAt(GrowthElapsedSeconds) - GrowthAt(previousGrowth)) / 200.0;
+                // Once numerical exponential growth is capped, mature fire must still spread.
+                double cap = DoublingSeconds * 20.0;
+                pendingTravel += (Math.Max(0, GrowthElapsedSeconds - cap) - Math.Max(0, previousGrowth - cap))
+                    * cellSize / StepSeconds;
+                ElapsedSeconds = nextTime;
+                accumulator += slice;
+                if (accumulator + 1e-12 < StepSeconds) continue;
+                double travel = pendingTravel;
+                accumulator = 0;
+                pendingTravel = 0;
                 ignitions.Clear();
                 for (int cell = 0; cell < burning.Length; cell++)
                 {
@@ -109,11 +130,12 @@ namespace FireSafety.Fire
             ignitions.Clear();
             BurningCellCount = 0;
             accumulator = 0;
+            pendingTravel = 0;
             return true;
         }
 
-        // Size and spread share the same delayed growth clock, without a jump when the hold ends.
-        private double GrowthAt(double time) => InitialSizeCm * Math.Pow(2.0,
-            Math.Min(Math.Max(0.0, time - InitialHoldSeconds) / DoublingSeconds, 20.0));
+        // Integrate ventilation over time, so toggling an opening never resizes existing fire.
+        private double GrowthAt(double growthSeconds) => InitialSizeCm * Math.Pow(2.0,
+            Math.Min(growthSeconds / DoublingSeconds, 20.0));
     }
 }

@@ -14,7 +14,7 @@ namespace FireSafety.Gameplay
             double holdRemaining = Math.Max(0, FireSimulation.InitialHoldSeconds - fire.ElapsedSeconds);
             double growthRemaining = fire.DoublingSeconds
                 * Math.Log(ExtinguishingRules.MaximumSizeCm / fire.GrowthSizeCm, 2);
-            return secondsRequired < holdRemaining + growthRemaining;
+            return secondsRequired < holdRemaining + growthRemaining / fire.GrowthRateMultiplier;
         }
     }
 }

@@ -36,12 +36,16 @@ namespace FireSafety.Fire
         private Material outerMaterial, coreMaterial;
         private readonly List<Bounds> footprint = new List<Bounds>();
         private bool[] danger;
+        private bool[] passage;
+        private int passageVersion = -1;
+        private float visualTime;
 
         public void Initialize(HousePrototype layout, FireType type, FireLocation location, FireSite ignition)
         {
             house = layout; site = ignition;
             Simulation = new FireSimulation(house.GridWidth, house.GridHeight, house.GridCellSize,
                 house.WorldToCell(site.Position), type, location);
+            RefreshVentilation();
             mesh = new Mesh { name = "Fire flame mesh" };
             gameObject.AddComponent<MeshFilter>().sharedMesh = mesh;
             var renderer = gameObject.AddComponent<MeshRenderer>();
@@ -57,8 +61,18 @@ namespace FireSafety.Fire
         public void Tick(float seconds)
         {
             if (Simulation.IsExtinguished) return;
-            Simulation.Advance(seconds, house.CreateFirePassageMask());
-            Refresh();
+            if (passage == null || passageVersion != house.OcclusionVersion)
+            { passage = house.CreateFirePassageMask(); passageVersion = house.OcclusionVersion; }
+            int previousBurningCells = Simulation.BurningCellCount;
+            Simulation.Advance(seconds, passage);
+            visualTime += seconds;
+            if (visualTime >= 0.2f || previousBurningCells != Simulation.BurningCellCount)
+            { Refresh(); visualTime = 0f; }
+        }
+
+        public void RefreshVentilation()
+        {
+            if (Simulation != null) Simulation.SetGrowthRateMultiplier(house.FireGrowthRate(site.Position));
         }
 
         public bool BlocksCell(int cell) => danger != null && cell >= 0 && cell < danger.Length && danger[cell];
