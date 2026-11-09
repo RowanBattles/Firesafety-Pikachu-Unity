@@ -6,6 +6,7 @@ using FireSafety.Equipment;
 using UnityEngine;
 using UnityEngine.Rendering;
 using FireSafety.Rendering;
+using FireSafety.Gameplay;
 
 namespace FireSafety.Fire
 {
@@ -13,22 +14,21 @@ namespace FireSafety.Fire
     {
         public FireSimulation Simulation { get; private set; }
         public Vector3 SourcePosition => site.Position;
-        public override string DisplayName => "Class " + Simulation.Type + " fire";
+        public override string DisplayName => ScenarioPresentation.FireTitle(house.Mode, Simulation.Type);
+        public override Vector3 SelectionPosition => SourcePosition + Vector3.up * 0.8f;
         public override string StatusText => "Current fire size: " + Simulation.SizeCm.ToString("0") + " cm";
         public override string ActionLabel => "Continue";
-        public override string Prompt => Simulation.SizeCm >= ExtinguishingRules.MaximumSizeCm
-            ? "Too large to extinguish. Evacuate." : "";
+        public override string Prompt => ScenarioPresentation.FireHint(house.Mode, Simulation.SizeCm);
         public override bool ShowCancel => false;
         // A ready extinguisher makes the character walk to that extinguisher's working distance.
         private bool UsesExtinguisherRange => house.Equipment.Inventory.Held != null
             && ExtinguishingRules.IsExtinguisher(house.Equipment.Inventory.Held.Kind)
-            && house.Equipment.Inventory.Held.CanDischarge && Simulation.SizeCm < ExtinguishingRules.MaximumSizeCm;
+            && house.Equipment.Inventory.Held.CanDischarge;
         public override float UseRange => UsesExtinguisherRange
             ? ExtinguishingRules.MaximumWorkingDistance(house.Equipment.Inventory.Held.Kind) : 1.4f;
         public override float MinimumUseRange => UsesExtinguisherRange
             ? ExtinguishingRules.MinimumWorkingDistance(house.Equipment.Inventory.Held.Kind) : 0f;
-        public override string SecondaryActionLabel => !Simulation.IsExtinguished
-            && Simulation.SizeCm < ExtinguishingRules.MaximumSizeCm && house.Equipment.Inventory.Held != null
+        public override string SecondaryActionLabel => !Simulation.IsExtinguished && house.Equipment.Inventory.Held != null
             ? "Extinguish the fire with " + house.Equipment.Inventory.Held.Name : null;
         private HousePrototype house;
         private FireSite site;

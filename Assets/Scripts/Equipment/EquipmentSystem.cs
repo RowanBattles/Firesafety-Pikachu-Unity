@@ -31,12 +31,13 @@ namespace FireSafety.Equipment
         private string resultTitle, resultText;
         private int consumedFrame = -1;
         private GUIStyle titleStyle, textStyle, buttonStyle, hudStyle;
-        private readonly string[] distances = { "Less than 1 metre", "1–2 metres", "3–4 metres", "More than 6 metres" };
+        private readonly string[] distances = ExtinguishingRules.DistanceAnswers;
         private float Width => Mathf.Min(490f, Screen.width - 24f);
         private Rect Area => new Rect((Screen.width - Width) * 0.5f, (Screen.height - 390f) * 0.5f, Width, 390f);
         private Rect Choice(int index) => new Rect(Area.x + 18f, Area.y + 116f + index * 45f, Width - 36f, 37f);
         private Rect ContinueButton => new Rect(Area.x + 18f, Area.y + 330f, Width - 36f, 38f);
-        private Rect InventoryRect => new Rect(12f, 12f, Mathf.Min(255f, Screen.width - 24f), 76f);
+        private Rect InventoryRect => new Rect(12f, 12f, Mathf.Min(255f, Screen.width - 24f),
+            house != null && ScenarioPresentation.ShowLiveScore(house.Mode) ? 76f : 58f);
 
         public void Initialize(HousePrototype layout, ClickToMovePlayer character, ObjectInteraction controller)
         { house = layout; player = character; interaction = controller; }
@@ -155,9 +156,9 @@ namespace FireSafety.Equipment
             if (panel == PanelState.Distance)
             {
                 if (ExtinguishingRules.Check(targetFire.Simulation, Inventory.Held) != ExtinguishingBlock.None)
-                { ResolveAttempt(); return; }
+                { ResolveAttempt(playerInitiated: false); return; }
                 if (!interaction.CanInteractFrom(targetFire, player.transform.position))
-                { ShowResult("Out of reach", "You can no longer reach this fire safely. No points scored."); return; }
+                { ShowResult("Fire was not extinguished", "You can no longer reach this fire safely."); return; }
             }
             if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
             { Close(); return; }
@@ -173,21 +174,28 @@ namespace FireSafety.Equipment
             if (ContinueButton.Contains(pointer)) Close();
         }
 
-        private void ResolveAttempt(int choice = -1)
+        private void ResolveAttempt(int choice = -1, bool playerInitiated = true)
         {
-            ExtinguishingOutcome outcome = attempt.Resolve(choice);
+            ExtinguishingBlock block = ExtinguishingRules.Check(targetFire.Simulation, Inventory.Held);
+            FireType type = targetFire.Simulation.Type;
+            EquipmentKind kind = Inventory.Held == null ? EquipmentKind.AbcPowderExtinguisher : Inventory.Held.Kind;
+            ExtinguishingOutcome outcome = attempt.Resolve(choice, playerInitiated);
+            string feedback = ScenarioPresentation.AttemptMessage(house.Mode, outcome, block);
             Score += outcome.Points;
             if (held != null) held.RefreshContents();
             if (outcome.Extinguished)
             {
                 targetFire.RefreshAfterExtinguishing();
-                house.CompleteExtinguishing(outcome.Message);
+                house.CompleteExtinguishing(feedback);
                 Close();
+                if (house.Tutorial != null) house.Tutorial.ShowDecision(TutorialFeedback.Extinguishing(kind, type, choice, block, outcome));
                 return;
             }
-            string points = outcome.Points > 0 ? "+" + outcome.Points + " points"
-                : outcome.Points < 0 ? outcome.Points + " points" : "No points scored";
-            ShowResult("Extinguishing stopped", outcome.Message + "\n\n" + points);
+            if (house.Tutorial != null)
+            {
+                Close(); house.Tutorial.ShowDecision(TutorialFeedback.Extinguishing(kind, type, choice, block, outcome));
+            }
+            else ShowResult(block == ExtinguishingBlock.TooLarge ? "Fire too big" : "Extinguishing result", feedback);
         }
 
         private void ShowResult(string title, string text)
@@ -216,7 +224,8 @@ namespace FireSafety.Equipment
             GUI.Box(slot, GUIContent.none);
             GUI.Label(new Rect(slot.x + 10f, slot.y + 6f, slot.width - 20f, 46f),
                 "Inventory (1 slot)\n" + (Inventory.Held == null ? "Empty" : Inventory.Held.Name), hudStyle);
-            GUI.Label(new Rect(slot.x + 10f, slot.y + 51f, slot.width - 20f, 22f), "Score: " + Score, hudStyle);
+            if (ScenarioPresentation.ShowLiveScore(house.Mode))
+                GUI.Label(new Rect(slot.x + 10f, slot.y + 51f, slot.width - 20f, 22f), "Score: " + Score, hudStyle);
             if (panel == PanelState.None) return;
             Color previous = GUI.color;
             GUI.color = new Color(0f, 0f, 0f, 0.4f);

@@ -57,8 +57,11 @@ public static class ScenarioResultTests
         {
             var failed = new ScenarioResult(); failed.ObserveExtinguishingOpportunity(true);
             failed.Finish(death, -5);
-            Check(failed.IsFinished && failed.TotalPoints == -5 && failed.EscapePoints == 0 && failed.MissedOpportunityPoints == 0,
-                "Death preserves decision points without awarding escape or charging a missed opportunity");
+            Check(failed.IsFinished && failed.TotalPoints == -15 && failed.DeathPoints == -10
+                && failed.DecisionPoints == -5 && failed.EscapePoints == 0 && failed.MissedOpportunityPoints == 0,
+                "Both fire and smoke deaths deduct ten points from the existing decision score");
+            Check(!failed.Finish(death, 0) && failed.TotalPoints == -15 && failed.DeathPoints == -10,
+                "Death can only deduct its penalty once");
         }
 
         bool rejected = false;

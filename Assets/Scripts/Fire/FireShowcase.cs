@@ -36,8 +36,9 @@ namespace FireSafety.Fire
         private float PanelWidth => Mathf.Min(430f, Screen.width - 24f);
         private Rect Button(int index) => new Rect(Panel.x + 20f, Panel.y + 92f + index * 48f, Panel.width - 40f, 38f);
         private float ResultsWidth => Mathf.Min(510f, Screen.width - 24f);
-        private Rect ResultsPanel => new Rect((Screen.width - ResultsWidth) * 0.5f, (Screen.height - 390f) * 0.5f, ResultsWidth, 390f);
-        private Rect PlayAgainButton => new Rect(ResultsPanel.x + 20f, ResultsPanel.y + 332f, ResultsWidth - 40f, 38f);
+        private float ResultsHeight => house != null && house.Mode == ScenarioMode.Tutorial ? 270f : 390f;
+        private Rect ResultsPanel => new Rect((Screen.width - ResultsWidth) * 0.5f, (Screen.height - ResultsHeight) * 0.5f, ResultsWidth, ResultsHeight);
+        private Rect PlayAgainButton => new Rect(ResultsPanel.x + 20f, ResultsPanel.yMax - 58f, ResultsWidth - 40f, 38f);
 
         public void Initialize(HousePrototype layout, ClickToMovePlayer character)
         {
@@ -136,7 +137,7 @@ namespace FireSafety.Fire
 
         private void StartFire(FireType type, FireLocation location)
         {
-            var root = new GameObject("Class " + type + " fire");
+            var root = new GameObject(ScenarioPresentation.FireTitle(house.Mode, type));
             root.transform.SetParent(house.transform, false);
             fire = root.AddComponent<FireHazard>();
             house.AttachFire(fire);
@@ -188,15 +189,19 @@ namespace FireSafety.Fire
             if (house.Tutorial != null && !tutorialComplete) feedback += "\n\nRetry this lesson from its checkpoint, or return to Menu.";
             GUI.Label(new Rect(panel.x + 20f, panel.y + 16f, panel.width - 40f, 32f), title, titleStyle);
             GUI.Label(new Rect(panel.x + 20f, panel.y + 57f, panel.width - 40f, 132f), feedback, textStyle);
-            GUI.Label(new Rect(panel.x + 20f, panel.y + 200f, panel.width - 40f, 34f),
-                "Final score: " + result.TotalPoints + " points", titleStyle);
-            string breakdown = "Decision points: " + result.DecisionPoints;
-            if (result.Ending == ScenarioEnding.Escaped)
+            if (ScenarioPresentation.ShowFinalScore(house.Mode))
             {
-                breakdown += "\nEscape bonus: +" + result.EscapePoints;
-                if (result.MissedOpportunityPoints != 0) breakdown += "\nMissed opportunity: " + result.MissedOpportunityPoints;
+                GUI.Label(new Rect(panel.x + 20f, panel.y + 200f, panel.width - 40f, 34f),
+                    "Final score: " + result.TotalPoints + " points", titleStyle);
+                string breakdown = "Decision points: " + result.DecisionPoints;
+                if (result.Ending == ScenarioEnding.Escaped)
+                {
+                    breakdown += "\nEscape bonus: +" + result.EscapePoints;
+                    if (result.MissedOpportunityPoints != 0) breakdown += "\nMissed opportunity: " + result.MissedOpportunityPoints;
+                }
+                if (result.DeathPoints != 0) breakdown += "\nDeath: " + result.DeathPoints;
+                GUI.Label(new Rect(panel.x + 20f, panel.y + 244f, panel.width - 40f, 76f), breakdown, textStyle);
             }
-            GUI.Label(new Rect(panel.x + 20f, panel.y + 244f, panel.width - 40f, 76f), breakdown, textStyle);
             GUI.Box(PlayAgainButton, house.Tutorial != null ? (tutorialComplete ? "Play tutorial again" : "Retry lesson") : "Play again", buttonStyle);
         }
 
