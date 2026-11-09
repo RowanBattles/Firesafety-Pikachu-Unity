@@ -47,6 +47,39 @@ namespace FireSafety.Visibility
 
         public bool IsVisible(int cell) => cell >= 0 && cell < visible.Length && visible[cell];
 
+        public static float ViewExtent(float orthographicSize, float aspect)
+            => Math.Max(32f, orthographicSize * 2f * Math.Max(1f, aspect) + 4f);
+
+        // Glass admits sight only. Navigation, interaction and fire keep their solid wall geometry.
+        public static void AddWallWithWindows(SightObstacle wall, IReadOnlyList<SightObstacle> windows,
+            List<SightObstacle> result)
+        {
+            bool horizontal = wall.MaxX - wall.MinX > wall.MaxZ - wall.MinZ;
+            var pieces = new List<SightObstacle> { wall };
+            for (int window = 0; window < windows.Count; window++)
+            {
+                SightObstacle gap = windows[window];
+                if (horizontal ? gap.MinZ > wall.MinZ || gap.MaxZ < wall.MaxZ
+                    : gap.MinX > wall.MinX || gap.MaxX < wall.MaxX) continue;
+                for (int i = pieces.Count - 1; i >= 0; i--)
+                {
+                    SightObstacle piece = pieces[i];
+                    float min = horizontal ? piece.MinX : piece.MinZ, max = horizontal ? piece.MaxX : piece.MaxZ;
+                    float cutMin = Math.Max(min, horizontal ? gap.MinX : gap.MinZ);
+                    float cutMax = Math.Min(max, horizontal ? gap.MaxX : gap.MaxZ);
+                    if (cutMax <= cutMin) continue;
+                    pieces.RemoveAt(i);
+                    if (min < cutMin) pieces.Add(horizontal
+                        ? new SightObstacle(min, piece.MinZ, cutMin, piece.MaxZ)
+                        : new SightObstacle(piece.MinX, min, piece.MaxX, cutMin));
+                    if (cutMax < max) pieces.Add(horizontal
+                        ? new SightObstacle(cutMax, piece.MinZ, max, piece.MaxZ)
+                        : new SightObstacle(piece.MinX, cutMax, piece.MaxX, max));
+                }
+            }
+            result.AddRange(pieces);
+        }
+
         public static bool CanSee(float fromX, float fromZ, float toX, float toZ, IReadOnlyList<SightObstacle> obstacles)
         {
             for (int i = 0; i < obstacles.Count; i++)
@@ -55,11 +88,15 @@ namespace FireSafety.Visibility
         }
 
         public void Calculate(float fromX, float fromZ, IReadOnlyList<SightObstacle> obstacles)
+            => Calculate(fromX, fromZ, obstacles, originX, originZ, step);
+
+        public void Calculate(float fromX, float fromZ, IReadOnlyList<SightObstacle> obstacles,
+            float areaOriginX, float areaOriginZ, float cellSize)
         {
             for (int z = 0; z < height; z++)
                 for (int x = 0; x < width; x++)
                     visible[z * width + x] = CanSee(fromX, fromZ,
-                        originX + (x + 0.5f) * step, originZ + (z + 0.5f) * step, obstacles);
+                        areaOriginX + (x + 0.5f) * cellSize, areaOriginZ + (z + 0.5f) * cellSize, obstacles);
         }
     }
 }

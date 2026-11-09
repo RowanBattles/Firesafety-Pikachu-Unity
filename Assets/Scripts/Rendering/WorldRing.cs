@@ -9,13 +9,13 @@ namespace FireSafety.Rendering
         private Mesh mesh;
         private Material material;
 
-        public static Transform Create(Transform parent, string name, Color color)
+        public static Transform Create(Transform parent, string name, Color color, bool filled = true)
         {
             var root = new GameObject(name);
             root.transform.SetParent(parent, false);
             var ring = root.AddComponent<WorldRing>();
             ring.material = RuntimeMaterials.Flame(color);
-            ring.mesh = CreateMesh();
+            ring.mesh = CreateMesh(filled);
             root.AddComponent<MeshFilter>().sharedMesh = ring.mesh;
             var renderer = root.AddComponent<MeshRenderer>();
             renderer.sharedMaterial = ring.material;
@@ -25,9 +25,23 @@ namespace FireSafety.Rendering
             return root.transform;
         }
 
-        private static Mesh CreateMesh()
+        private static Mesh CreateMesh(bool filled)
         {
             const int segments = 48;
+            if (filled)
+            {
+                var points = new Vector3[segments + 1];
+                var faces = new int[segments * 3];
+                for (int i = 0; i < segments; i++)
+                {
+                    float angle = i * Mathf.PI * 2f / segments;
+                    points[i + 1] = new Vector3(Mathf.Cos(angle), 0, Mathf.Sin(angle)) * 0.49f;
+                    faces[i * 3] = 0; faces[i * 3 + 1] = (i + 1) % segments + 1; faces[i * 3 + 2] = i + 1;
+                }
+                var disc = new Mesh { name = "Filled selection circle" };
+                disc.vertices = points; disc.triangles = faces; disc.RecalculateBounds();
+                return disc;
+            }
             var vertices = new Vector3[segments * 2];
             var triangles = new int[segments * 6];
             for (int i = 0; i < segments; i++)

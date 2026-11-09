@@ -223,7 +223,7 @@ namespace FireSafety.Equipment
             Rect slot = InventoryRect;
             GUI.Box(slot, GUIContent.none);
             GUI.Label(new Rect(slot.x + 10f, slot.y + 6f, slot.width - 20f, 46f),
-                "Inventory (1 slot)\n" + (Inventory.Held == null ? "Empty" : Inventory.Held.Name), hudStyle);
+                "Inventory\n" + (Inventory.Held == null ? "Empty" : Inventory.Held.Name), hudStyle);
             if (ScenarioPresentation.ShowLiveScore(house.Mode))
                 GUI.Label(new Rect(slot.x + 10f, slot.y + 51f, slot.width - 20f, 22f), "Score: " + Score, hudStyle);
             if (panel == PanelState.None) return;
@@ -247,7 +247,7 @@ namespace FireSafety.Equipment
             {
                 GUI.Label(new Rect(area.x + 18f, area.y + 58f, Width - 36f, 248f),
                     panel == PanelState.Filling ? "Keep the bucket at the tap.\n\nTime remaining: "
-                        + filling.RemainingSeconds.ToString("0.0") + " s\n\nFire and smoke keep spreading."
+                        + filling.RemainingSeconds.ToString("0.0") + " s"
                         : resultText, textStyle);
                 DrawButton(ContinueButton, panel == PanelState.Filling ? "Cancel filling" : "Continue");
             }

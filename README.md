@@ -8,12 +8,12 @@ Open **Assets/Scenes/MenuPage.unity** and press **Play**. The illustrated menu
 offers **Game**, **Tutorial** and **Dev**. A **Menu** button in each house scene
 returns to this page, including during lessons or after a result.
 
-| Scene | Behaviour |
-| --- | --- |
-| MenuPage | Startup page with the three mode choices and original menu artwork. |
-| GameScene | Starts one random A/B/C/F fire automatically; class A randomly uses the table or bed. Each door/window has a random open/closed state, except the bottom front escape door, which always starts closed. Play again rolls a fresh scenario. |
-| TutorialScene | Guided, hands-on lessons with controlled fires, a smoke drill, explained decisions and a final real-time escape. Scores stay hidden throughout. |
-| DevScene | The former SampleScene, preserving its asset GUID. Choose the fire class/location manually. The kitchen door and west living-room window start open as before. |
+| Scene         | Behaviour                                                                                                                                                                                                                                  |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| MenuPage      | Startup page with the three mode choices and original menu artwork.                                                                                                                                                                        |
+| GameScene     | Starts one random A/B/C/F fire automatically; class A randomly uses the table or bed. Each door/window has a random open/closed state, except the bottom front escape door, which always starts closed. Play again rolls a fresh scenario. |
+| TutorialScene | Guided, hands-on lessons with controlled fires, a smoke drill, explained decisions and a final real-time escape. Scores stay hidden throughout.                                                                                            |
+| DevScene      | The former SampleScene, preserving its asset GUID. Choose the fire class/location manually. The kitchen door and west living-room window start open as before.                                                                             |
 
 All three house scenes use the same `HousePrototype` geometry, equipment and
 player spawn. Only scenario state changes. Open any scene directly in the Editor
@@ -21,12 +21,15 @@ to work on that mode; the procedural house appears when Play starts.
 
 All house modes include a surrounding meadow, grass tufts, trees and garden
 stepping stones. Scenery uses batched meshes without colliders; the house,
-player spawn and exit navigation remain the same. The garden is visible around
-the house; hidden interiors still use the existing wall/door visibility rules.
+player spawn and exit navigation remain the same. The garden obeys line of sight:
+glass windows and open doors reveal it, while solid walls and corners hide it.
+Closed glass still admits sight. Windows remain solid to movement and fire.
+The fog follows the camera and covers wide aspect ratios as well.
 
-Clicking an object places a yellow ring on the object itself, while the player
+Clicking an object places a filled yellow circle on the object itself, while the player
 walks to a safe, reachable interaction position. Floor clicks have their own
-destination ring. Door/window popups show the appropriate Open/Close action
+destination circle. Cyan tutorial targets retain their ring shape.
+Door/window popups show the appropriate Open/Close action
 without a redundant status line.
 
 **Game** shows a fire's current size, without revealing its class or pre-warning
@@ -46,9 +49,11 @@ Put out a small class A table fire with water, a class B paint fire with ABC
 powder, and a class F fryer fire with wet chemical. The extinguisher distance
 questions use the existing working-distance rules. A gas-safety
 question teaches why a still-fed class C fire requires evacuation. Another
-question covers staying low and leaving smoke. Each choice opens feedback showing
-your answer, the correct answer and the incorrect alternatives. Incorrect safety
-answers can be retried after reviewing the explanation. No points are displayed.
+question covers staying low and leaving smoke. Correct decisions show a brief
+safety takeaway. Incorrect answers show your choice, the correct answer and a
+short explanation before retrying. Feedback cards are compact, and the passive
+300×88-pixel objective panel is click-through so floor clicks beneath it work.
+No points are displayed.
 
 Picking wet chemical during the ABC swap exercise explains that you swapped the
 wrong items, reassures you and advances to retrieving the full bucket. Its water
@@ -136,9 +141,9 @@ must be verified on a licensed local Unity installation.
    ABC extinguisher, the character first walks to a reachable working position
    3–4 m from the source. Choose its starting-distance range in the question.
 10. For a cooking-oil (class F) fire, enter the kitchen and pick up the red
-   **wet chemical extinguisher** with the yellow band in the kitchen's north-west
-   corner, just inside the door. The character walks to a working position
-   3–3.7 m from the fire before the distance question appears (answer 3–4 m).
+    **wet chemical extinguisher** with the yellow band in the kitchen's north-west
+    corner, just inside the door. The character walks to a working position
+    3–3.7 m from the fire before the distance question appears (answer 3–4 m).
 11. To escape, open the **front door** in the south wall of the living room.
     Click the visible path outside it. The character walks through the door;
     clearing the doorway ends the run and displays the final score.
@@ -147,12 +152,12 @@ must be verified on a licensed local Unity installation.
 
 ## Fire scenarios
 
-| Class | Starting location |
-| --- | --- |
-| A | Coffee table or bed |
-| B | Paint bottle in the living room |
-| C | Gas hob on the kitchen counter |
-| F | Deep fryer on the kitchen counter |
+| Class | Starting location                 |
+| ----- | --------------------------------- |
+| A     | Coffee table or bed               |
+| B     | Paint bottle in the living room   |
+| C     | Gas hob on the kitchen counter    |
+| F     | Deep fryer on the kitchen counter |
 
 Game/Dev and the final tutorial escape start at **25 cm** and stay at that size without spreading for
 the first **20 seconds**. Exponential growth then begins. Ventilation scales
@@ -189,11 +194,11 @@ to the growth rate; each open window adds **0.4**. A sealed room has a rate of
 without connecting separate rooms via the outside. A window behind a closed
 door affects its own room, rather than a fire in an isolated room.
 
-| Situation | Growth rate | Time to double after the initial hold |
-| --- | --- | --- |
-| All openings in the fire's connected rooms closed | 0.5× | 30 seconds |
-| Initial living-room / kitchen open pair | 1.25× | 12 seconds |
-| Maximum ventilation | 3× | 5 seconds |
+| Situation                                         | Growth rate | Time to double after the initial hold |
+| ------------------------------------------------- | ----------- | ------------------------------------- |
+| All openings in the fire's connected rooms closed | 0.5×        | 30 seconds                            |
+| Initial living-room / kitchen open pair           | 1.25×       | 12 seconds                            |
+| Maximum ventilation                               | 3×          | 5 seconds                             |
 
 With the initial pair unchanged, a living-room or kitchen fire reaches 50 cm
 at about **32 seconds**. The initially closed bedroom reaches 50 cm at about
@@ -217,8 +222,9 @@ ends a run while still indoors. Walls, closed doors and burning space continue
 to block routes. Exterior clicks near the doorstep select a point far enough
 outside for the whole character to clear the door. Other exterior walls and
 windows are not exits. Fire and smoke stay indoors despite the larger walking
-grid. The exterior scenery stays visible, while closed-door navigation and
-line-of-sight click checks still prevent escape or interaction through walls.
+grid. The exterior scenery uses the same visibility mask as the house.
+Closed-door navigation and line-of-sight click checks still prevent escape or
+interaction through walls; seeing through glass does not create a walking exit.
 
 Escaping earns **+10 points**, added to existing decision points. A recorded
 missed opportunity to extinguish deducts **2 points**, with an explanation in
@@ -264,12 +270,12 @@ does not empty it, and picking up a used extinguisher does not recharge it.
 
 The equipment choices follow the supplied `fire extinguishing.docx`:
 
-| Fire | Filled water bucket | ABC powder extinguisher | Wet chemical extinguisher |
-| --- | --- | --- | --- |
-| A — solid material | Puts out a small fire | Puts out a small fire after the distance question | Puts out a small fire after the distance question |
-| B — burning liquid | Rejected: water can spread burning liquid | Puts out a small fire after the distance question | Rejected: not for burning liquids |
-| C — leaking gas | Rejected | Rejected while the gas supply is on | Rejected: not for gas |
-| F — cooking oil | Rejected: water can eject burning oil | Rejected: this extinguisher is not F-rated | Puts out a small fire after the distance question |
+| Fire               | Filled water bucket                       | ABC powder extinguisher                           | Wet chemical extinguisher                         |
+| ------------------ | ----------------------------------------- | ------------------------------------------------- | ------------------------------------------------- |
+| A — solid material | Puts out a small fire                     | Puts out a small fire after the distance question | Puts out a small fire after the distance question |
+| B — burning liquid | Rejected: water can spread burning liquid | Puts out a small fire after the distance question | Rejected: not for burning liquids                 |
+| C — leaking gas    | Rejected                                  | Rejected while the gas supply is on               | Rejected: not for gas                             |
+| F — cooking oil    | Rejected: water can eject burning oil     | Rejected: this extinguisher is not F-rated        | Puts out a small fire after the distance question |
 
 Gas isolation is not included in this equipment version, so the class C scenario
 requires evacuation rather than extinguishing with the supplied items. A generic
@@ -333,8 +339,11 @@ Closed doors hide the next room. Opening one reveals the view through its
 doorway; walls, corners and the opened door leaf still block sight. Connected
 rooms are not automatically revealed in full. Previously seen space darkens
 again when a door closes or the character moves behind a corner.
-The outdoor meadow stays visible as scenery; click access still respects doors
-and walls, so visibility of the garden does not create a remote exit.
+Windows cut sight openings in the exterior walls. Both closed and open glass
+reveal the garden within their view, with no visibility around corners. These
+sight openings do not alter wall colliders, navigation or fire containment.
+The visibility overlay follows the character and resizes to cover the full
+camera view, preventing scenery outside a fixed fog rectangle from leaking in.
 
 Hidden floors and objects reject mouse clicks, so the mask cannot be bypassed
 to walk blindly into a hidden room or inspect an unseen fire. Doors on the
@@ -492,13 +501,18 @@ Also check the following in the Unity Editor:
 
 - Open MenuPage, choose each of its three buttons, return with Menu, and repeat.
   Build with MenuPage first and confirm the same navigation in the player.
-- Inspect the garden at different aspect ratios and from the exit: grass should
-  fill the view with scattered trees, and hidden rooms must remain dark. Outdoor
+- Inspect the garden at different aspect ratios and from the exit: grass and
+  trees should be visible through glass and open doors, with solid walls and
+  corners blocking the view. Hidden rooms must remain dark. Outdoor
   scenery must never intercept floor/object clicks or create an alternate exit.
-- Click each door/window/extinguisher from a distance and nearby: a yellow ring
-  should mark the object, with no floor-destination ring during its approach.
+- Click each door/window/extinguisher from a distance and nearby: a filled yellow
+  circle should mark the object, with no floor-destination marker during its approach.
   Cancel, retarget and let a fire change navigation: the ring must remain on the
   intended object until the interaction is dismissed.
+- Read the compact tutorial objective and click the floor underneath it: the
+  character should still move. Correct-decision cards should show a short safety
+  takeaway. Check that Menu text is centred, the inventory heading has no slot
+  suffix, and filling shows only the instruction and remaining time.
 - In Game, inspect every class and an oversized fire: show only current size,
   retain the extinguish action, and reveal the 5-point oversized-attempt deduction
   only on the final score. Check both death types deduct ten exactly once.
