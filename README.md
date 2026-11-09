@@ -8,12 +8,12 @@ Open **Assets/Scenes/MenuPage.unity** and press **Play**. The illustrated menu
 offers **Game**, **Tutorial** and **Dev**. A **Menu** button in each house scene
 returns to this page, including during lessons or after a result.
 
-| Scene         | Behaviour                                                                                                                                                                                                                                  |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| MenuPage      | Startup page with the three mode choices and original menu artwork.                                                                                                                                                                        |
-| GameScene     | Starts one random A/B/C/F fire automatically; class A randomly uses the table or bed. Each door/window has a random open/closed state, except the bottom front escape door, which always starts closed. Play again rolls a fresh scenario. |
-| TutorialScene | Guided, hands-on lessons with controlled fires, a smoke drill, explained decisions and a final real-time escape. Scores stay hidden throughout.                                                                                            |
-| DevScene      | The former SampleScene, preserving its asset GUID. Choose the fire class/location manually. The kitchen door and west living-room window start open as before.                                                                             |
+| Scene | Behaviour |
+| --- | --- |
+| MenuPage | Startup page with the three mode choices and original menu artwork. |
+| GameScene | Starts one random A/B/C/F fire automatically; class A randomly uses the table or bed. Each door/window has a random open/closed state, except the bottom front escape door, which always starts closed. Play again rolls a fresh scenario. |
+| TutorialScene | Guided, hands-on lessons with controlled fires, a smoke drill, explained decisions and a final real-time escape. Scores stay hidden throughout. |
+| DevScene | The former SampleScene, preserving its asset GUID. Choose the fire class/location manually. The kitchen door and west living-room window start open as before. |
 
 All three house scenes use the same `HousePrototype` geometry, equipment and
 player spawn. Only scenario state changes. Open any scene directly in the Editor
@@ -141,9 +141,9 @@ must be verified on a licensed local Unity installation.
    ABC extinguisher, the character first walks to a reachable working position
    3–4 m from the source. Choose its starting-distance range in the question.
 10. For a cooking-oil (class F) fire, enter the kitchen and pick up the red
-    **wet chemical extinguisher** with the yellow band in the kitchen's north-west
-    corner, just inside the door. The character walks to a working position
-    3–3.7 m from the fire before the distance question appears (answer 3–4 m).
+   **wet chemical extinguisher** with the yellow band in the kitchen's north-west
+   corner, just inside the door. The character walks to a working position
+   3–3.7 m from the fire before the distance question appears (answer 3–4 m).
 11. To escape, open the **front door** in the south wall of the living room.
     Click the visible path outside it. The character walks through the door;
     clearing the doorway ends the run and displays the final score.
@@ -152,12 +152,12 @@ must be verified on a licensed local Unity installation.
 
 ## Fire scenarios
 
-| Class | Starting location                 |
-| ----- | --------------------------------- |
-| A     | Coffee table or bed               |
-| B     | Paint bottle in the living room   |
-| C     | Gas hob on the kitchen counter    |
-| F     | Deep fryer on the kitchen counter |
+| Class | Starting location |
+| --- | --- |
+| A | Coffee table or bed |
+| B | Paint bottle in the living room |
+| C | Gas hob on the kitchen counter |
+| F | Deep fryer on the kitchen counter |
 
 Game/Dev and the final tutorial escape start at **25 cm** and stay at that size without spreading for
 the first **20 seconds**. Exponential growth then begins. Ventilation scales
@@ -194,11 +194,11 @@ to the growth rate; each open window adds **0.4**. A sealed room has a rate of
 without connecting separate rooms via the outside. A window behind a closed
 door affects its own room, rather than a fire in an isolated room.
 
-| Situation                                         | Growth rate | Time to double after the initial hold |
-| ------------------------------------------------- | ----------- | ------------------------------------- |
-| All openings in the fire's connected rooms closed | 0.5×        | 30 seconds                            |
-| Initial living-room / kitchen open pair           | 1.25×       | 12 seconds                            |
-| Maximum ventilation                               | 3×          | 5 seconds                             |
+| Situation | Growth rate | Time to double after the initial hold |
+| --- | --- | --- |
+| All openings in the fire's connected rooms closed | 0.5× | 30 seconds |
+| Initial living-room / kitchen open pair | 1.25× | 12 seconds |
+| Maximum ventilation | 3× | 5 seconds |
 
 With the initial pair unchanged, a living-room or kitchen fire reaches 50 cm
 at about **32 seconds**. The initially closed bedroom reaches 50 cm at about
@@ -270,12 +270,12 @@ does not empty it, and picking up a used extinguisher does not recharge it.
 
 The equipment choices follow the supplied `fire extinguishing.docx`:
 
-| Fire               | Filled water bucket                       | ABC powder extinguisher                           | Wet chemical extinguisher                         |
-| ------------------ | ----------------------------------------- | ------------------------------------------------- | ------------------------------------------------- |
-| A — solid material | Puts out a small fire                     | Puts out a small fire after the distance question | Puts out a small fire after the distance question |
-| B — burning liquid | Rejected: water can spread burning liquid | Puts out a small fire after the distance question | Rejected: not for burning liquids                 |
-| C — leaking gas    | Rejected                                  | Rejected while the gas supply is on               | Rejected: not for gas                             |
-| F — cooking oil    | Rejected: water can eject burning oil     | Rejected: this extinguisher is not F-rated        | Puts out a small fire after the distance question |
+| Fire | Filled water bucket | ABC powder extinguisher | Wet chemical extinguisher |
+| --- | --- | --- | --- |
+| A — solid material | Puts out a small fire | Puts out a small fire after the distance question | Puts out a small fire after the distance question |
+| B — burning liquid | Rejected: water can spread burning liquid | Puts out a small fire after the distance question | Rejected: not for burning liquids |
+| C — leaking gas | Rejected | Rejected while the gas supply is on | Rejected: not for gas |
+| F — cooking oil | Rejected: water can eject burning oil | Rejected: this extinguisher is not F-rated | Puts out a small fire after the distance question |
 
 Gas isolation is not included in this equipment version, so the class C scenario
 requires evacuation rather than extinguishing with the supplied items. A generic
