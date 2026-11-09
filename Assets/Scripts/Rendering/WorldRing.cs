@@ -35,7 +35,7 @@ namespace FireSafety.Rendering
                 for (int i = 0; i < segments; i++)
                 {
                     float angle = i * Mathf.PI * 2f / segments;
-                    points[i + 1] = new Vector3(Mathf.Cos(angle), 0, Mathf.Sin(angle)) * 0.49f;
+                    points[i + 1] = new Vector3(Mathf.Cos(angle), 0, Mathf.Sin(angle)) * 0.29f;
                     faces[i * 3] = 0; faces[i * 3 + 1] = (i + 1) % segments + 1; faces[i * 3 + 2] = i + 1;
                 }
                 var disc = new Mesh { name = "Filled selection circle" };

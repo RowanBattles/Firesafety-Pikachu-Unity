@@ -10,7 +10,7 @@ namespace FireSafety.Gameplay
         public readonly bool Correct;
         public readonly string Title, Text;
         public TutorialFeedback(bool correct, string text)
-        { Correct = correct; Title = correct ? "Correct decision" : "Incorrect decision"; Text = text; }
+        { Correct = correct; Title = correct ? "" : "Incorrect"; Text = text; }
 
         public static TutorialFeedback Question(TutorialStep step, int choice)
         {
