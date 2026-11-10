@@ -1,5 +1,6 @@
 using System;
 using FireSafety.Equipment;
+using FireSafety.Fire;
 
 namespace FireSafety.Gameplay
 {
@@ -116,6 +117,21 @@ namespace FireSafety.Gameplay
         {
             if (NeedsBriefing || IsComplete || TutorialLessons.Get(Step).Action != action || action == TutorialAction.None) return false;
             Advance(); return true;
+        }
+
+        public bool IsExpectedOpening(HouseOpening opening, bool isOpen)
+        {
+            if (NeedsBriefing || IsComplete) return false;
+            switch (Step)
+            {
+                case TutorialStep.OpenWindow:
+                case TutorialStep.CloseWindow:
+                    return opening == HouseOpening.LivingRoomWindow && isOpen == (Step == TutorialStep.OpenWindow);
+                case TutorialStep.OpenDoor:
+                case TutorialStep.CloseDoor:
+                    return opening == HouseOpening.KitchenDoor && isOpen == (Step == TutorialStep.OpenDoor);
+                default: return false;
+            }
         }
 
         public bool ObserveEquipment(EquipmentItem item)

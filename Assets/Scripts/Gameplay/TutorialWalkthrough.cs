@@ -197,12 +197,9 @@ namespace FireSafety.Gameplay
             if (progress.NeedsBriefing || decision != null || progress.IsComplete) return;
             bool expected = true;
             var opening = target as OpenableObject;
-            if (progress.Step == TutorialStep.OpenWindow || progress.Step == TutorialStep.CloseWindow)
-                expected = opening != null && opening.Id == HouseOpening.LivingRoomWindow
-                    && choice == (progress.Step == TutorialStep.OpenWindow ? "Open" : "Close");
-            else if (progress.Step == TutorialStep.OpenDoor || progress.Step == TutorialStep.CloseDoor)
-                expected = opening != null && opening.Id == HouseOpening.KitchenDoor
-                    && choice == (progress.Step == TutorialStep.OpenDoor ? "Open" : "Close");
+            if (progress.Step == TutorialStep.OpenWindow || progress.Step == TutorialStep.CloseWindow
+                || progress.Step == TutorialStep.OpenDoor || progress.Step == TutorialStep.CloseDoor)
+                expected = opening != null && progress.IsExpectedOpening(opening.Id, opening.IsOpen);
             else if (target is PickupEquipment pickup)
             {
                 if (progress.Step == TutorialStep.PickUpBucket || progress.Step == TutorialStep.RetrieveWater || progress.Step == TutorialStep.ExtinguishA)
@@ -211,9 +208,13 @@ namespace FireSafety.Gameplay
                 if (progress.Step == TutorialStep.ExtinguishF) expected = pickup.Item.Kind == EquipmentKind.WetChemicalExtinguisher;
             }
             if (!success || !expected)
-                ShowDecision(new TutorialFeedback(false, "Your choice: " + choice + " " + target.DisplayName
+            {
+                string chosenAction = opening == null ? choice + " " + target.DisplayName
+                    : choice + " the " + target.DisplayName.ToLowerInvariant();
+                ShowDecision(new TutorialFeedback(false, "Your choice: " + chosenAction
                     + ".\n\nCorrect action: " + TutorialLessons.Get(progress.Step).Objective
                     + (string.IsNullOrEmpty(failure) ? "\n\nThis action does not complete the current exercise. You can try again." : "\n\n" + failure)));
+            }
         }
 
         private void Advanced()

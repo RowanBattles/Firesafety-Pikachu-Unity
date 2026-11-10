@@ -1,6 +1,7 @@
 using System;
 using FireSafety.Gameplay;
 using FireSafety.Equipment;
+using FireSafety.Fire;
 
 public static class TutorialProgressTests
 {
@@ -8,8 +9,46 @@ public static class TutorialProgressTests
     private static void Check(bool condition, string message)
     { if (!condition) throw new Exception(message); checks++; }
 
+    private static void CheckOpeningLesson(TutorialStep step, HouseOpening target, bool requiredOpen, TutorialAction action)
+    {
+        var lesson = new TutorialProgress(step);
+        Check(!lesson.IsExpectedOpening(target, requiredOpen), "Opening choices must wait for their lesson's briefing");
+        Check(lesson.ContinueBriefing(), "The opening exercise must be startable");
+        Check(lesson.IsExpectedOpening(target, requiredOpen), "The requested opening's resulting state must be accepted");
+        Check(!lesson.IsExpectedOpening(target, !requiredOpen), "The opposite action on the right opening must be rejected");
+        foreach (HouseOpening other in Enum.GetValues(typeof(HouseOpening)))
+        {
+            if (other == target) continue;
+            Check(!lesson.IsExpectedOpening(other, true) && !lesson.IsExpectedOpening(other, false),
+                "Changing another door or window must not satisfy the opening exercise");
+        }
+        Check(lesson.Step == step && !lesson.NeedsBriefing,
+            "Checking an opening choice must not advance or restart the exercise");
+        Check(lesson.Observe(action) && lesson.Step == (TutorialStep)((int)step + 1) && lesson.NeedsBriefing,
+            "Observing the successful world action must advance to the next briefing");
+        Check(!lesson.Observe(action), "The same opening action must not advance the tutorial twice");
+        Check(!lesson.IsExpectedOpening(target, requiredOpen), "A completed exercise must not keep accepting opening choices");
+    }
+
     public static void Main()
     {
+        CheckOpeningLesson(TutorialStep.OpenWindow, HouseOpening.LivingRoomWindow, true, TutorialAction.WindowOpened);
+        CheckOpeningLesson(TutorialStep.CloseWindow, HouseOpening.LivingRoomWindow, false, TutorialAction.WindowClosed);
+        CheckOpeningLesson(TutorialStep.OpenDoor, HouseOpening.KitchenDoor, true, TutorialAction.DoorOpened);
+        CheckOpeningLesson(TutorialStep.CloseDoor, HouseOpening.KitchenDoor, false, TutorialAction.DoorClosed);
+        foreach (TutorialStep step in new[] { TutorialStep.Movement, TutorialStep.PickUpBucket, TutorialStep.FillBucket,
+            TutorialStep.SwapForExtinguisher, TutorialStep.RetrieveWater, TutorialStep.ExtinguishA,
+            TutorialStep.ExtinguishB, TutorialStep.ExtinguishF, TutorialStep.SmokePractice, TutorialStep.Escape })
+        {
+            var unrelated = new TutorialProgress(step);
+            unrelated.ContinueBriefing();
+            foreach (HouseOpening opening in Enum.GetValues(typeof(HouseOpening)))
+                Check(!unrelated.IsExpectedOpening(opening, true) && !unrelated.IsExpectedOpening(opening, false),
+                    "Opening choices must not satisfy an unrelated practice exercise");
+        }
+        var complete = new TutorialProgress(TutorialStep.Complete);
+        Check(!complete.IsExpectedOpening(HouseOpening.KitchenDoor, false), "A finished tutorial must not accept a door-closing choice");
+
         var progress = new TutorialProgress();
         Check(progress.Step == TutorialStep.Welcome && progress.NeedsBriefing, "Tutorial must begin with a briefing");
         Check(!progress.Observe(TutorialAction.Escaped), "An early escape must not complete the tutorial");

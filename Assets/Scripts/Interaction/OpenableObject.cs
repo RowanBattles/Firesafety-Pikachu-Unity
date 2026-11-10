@@ -17,9 +17,7 @@ namespace FireSafety.Interaction
         public bool IsOpen { get; private set; }
         public bool IsDoor { get; private set; }
         public HouseOpening Id { get; private set; }
-        public override string ActionLabel => IsOpen
-            ? (Id == HouseOpening.KitchenDoor ? "Close the kitchen door" : "Close")
-            : "Open";
+        public override string ActionLabel => IsOpen ? "Close" : "Open";
         public Bounds NavigationBounds => IsOpen ? openBounds : closedBounds;
         public Bounds InteractionBounds { get; private set; }
         public Bounds WindowPaneBounds => closedBounds;
